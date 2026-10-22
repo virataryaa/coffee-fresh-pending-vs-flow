@@ -46,8 +46,7 @@ def render():
         c.style(fig, height=350, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M3", tickformat="%b-%y"))
         c.show(fig, "br_actual")
 
-    l, r = st.columns(2, gap="medium")
-    with l, st.container(border=True):
+    with st.container(border=True):
         c.head(f"Share of Brazil Arabica going to {dest}", "Monthly and 12m average.")
         s = share[share.index >= pd.Timestamp("2016-07-01")]
         fig = go.Figure()
@@ -55,25 +54,3 @@ def render():
         fig.add_scatter(x=s.index, y=s.rolling(12).mean() * 100, name="12m avg", mode="lines", line=dict(color=c.NAVY, width=2.4))
         c.style(fig, height=310, fmt=".1f", yaxis=dict(ticksuffix="%", gridcolor=c.GRID, color=c.AXIS, tickfont=dict(size=10)))
         c.show(fig, "br_share")
-    with r, st.container(border=True):
-        c.head("Crop-year pace", "Cumulative from July.")
-        fig = go.Figure()
-        for i, y in enumerate(sorted(cyid.unique())[-6:]):
-            sy = bel[cyid == y]
-            fig.add_scatter(x=[MONTHS[pos(m)] for m in sy.index], y=sy.cumsum() * u, name=f"{y % 100:02d}/{(y + 1) % 100:02d}", mode="lines+markers",
-                            line=dict(color=c.YEAR_PAL[i], width=2.8 if y == cur_cy else 1.6), marker=dict(size=4))
-        c.style(fig, height=310, xaxis=dict(color=c.AXIS, showgrid=False, categoryorder="array", categoryarray=MONTHS))
-        c.show(fig, "br_pace")
-
-    with st.container(border=True):
-        c.head("Excess vs normal, last 12 months", "Normal = 5y same-month average. Lot = 283.5 bags.")
-        rows = []
-        for m in bel.index[-12:][::-1]:
-            n = _normal(bel, m)
-            ex = bel[m] - n
-            cls = "up" if ex >= 0 else "dn"
-            nxt = m + pd.DateOffset(months=1)
-            rows.append((c.mlabel(m), [c.kfmt(bel[m] * u), c.kfmt(n * u), (c.kfmt(ex * u), cls), (f"{ex / c.LOT_BAGS:+,.0f}", cls),
-                                       (f"{bel[m] / n - 1:+.0%}" if n else "–", cls), f"{share.get(m, float('nan')):.1%}",
-                                       c.kfmt(fp.get(nxt, float('nan')) * u) if nxt in fp.index else "–"], ""))
-        c.table(["Actual", "Normal", "Excess", "Lots", "vs Normal", "Share", "FP next month"], rows, corner="Month")

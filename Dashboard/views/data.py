@@ -24,14 +24,7 @@ def render():
     with st.container(border=True):
         c.head("Sources")
         c.table(["From", "Latest", "What"], rows, corner="Source")
-    with st.container(border=True):
-        c.head("Report-day coverage", "Report days / business days.")
-        cov = c.coverage()
-        fig = go.Figure(go.Bar(x=cov.index, y=cov * 100, marker_color=[c.NAVY if v >= .8 else c.AMBER if v >= .5 else c.RED for v in cov],
-                               marker_line_width=0, hovertemplate="%{x|%b-%y}: %{y:.0f}%<extra></extra>"))
-        c.style(fig, height=230, legend=False, fmt=".0f", yaxis=dict(range=[0, 105], ticksuffix="%", gridcolor=c.GRID, color=c.AXIS),
-                xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
-        c.show(fig, "dt_cov")
+
     with st.container(border=True):
         c.head("Caveats")
         c.table(["Note"], [(k, [(v, "l")], "") for k, v in NOTES], corner="Topic", cls="wrap")

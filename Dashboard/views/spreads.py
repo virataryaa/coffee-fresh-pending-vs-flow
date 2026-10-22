@@ -112,32 +112,3 @@ def render():
         c.show(fig, "sp_fp")
         st.markdown("<div class='note'>r by months ahead: " + " · ".join(f"<b>{k}m</b> {r:+.2f} (n {n})" for k, r, n in rows) + "</div>",
                     unsafe_allow_html=True)
-
-    # ── 4. pipeline-implied spread ───────────────────────────────────────────────────────────────────────
-    with st.container(border=True):
-        c.head("Pipeline-implied spread", "Today's pool + nowcast arrivals (Belgium + US), through the log fit. Supply side only.")
-        a, b, r2 = fits["Pool"]
-        a0, b0, _ = fits["Certs"]
-        nc = pd.concat([c.nowcast_table(mk) for mk in c.MARKETS], ignore_index=True)
-        w90 = p[p.index > p.index.max() - pd.Timedelta(days=90)]
-        pr = w90["Passed"].sum() / max(w90["Passed"].sum() + w90["Failed"].sum(), 1)
-        months = [x for x in nc.columns if isinstance(x, pd.Timestamp)] if not nc.empty else []
-        pool_now = certs + pend
-        rows = [("Today", [c.kfmt(certs * u), c.kfmt(pend * u), c.kfmt(pool_now * u), "", f"{a + b * np.log(pool_now / 1000):.2f}",
-                           f"{a0 + b0 * np.log(certs / 1000):.2f}", f"{sp_now:.2f}"], "")]
-        add, cadd = 0.0, 0.0
-        cur = p.index.max().to_period("M").to_timestamp()
-        for mth in months:
-            v = nc[mth].sum(min_count=1)
-            if pd.isna(v):
-                continue
-            if mth == cur:
-                v = max(v - nc["MTD"].sum(), 0.0)          # this month: only what has not shown up yet
-            add += v
-            cadd += v * pr
-            pl = pool_now + add
-            rows.append((f"+ est. {mth:%b-%y}", [c.kfmt((certs + cadd) * u), c.kfmt((pend + add - cadd) * u), c.kfmt(pl * u), c.kfmt(v * u),
-                                                 f"{a + b * np.log(pl / 1000):.2f}", f"{a0 + b0 * np.log((certs + cadd) / 1000):.2f}", ""], ""))
-        c.table(["Certs", "Pending", "Pool", "Fresh in", "Fit: pool", "Fit: certs", "Actual"], rows, corner="Step")
-        st.markdown(f"<div class='note'>{len(m)} months · R² pool {r2:.2f} vs certs {fits['Certs'][2]:.2f} · pass rate {pr:.0%}</div>",
-                    unsafe_allow_html=True)

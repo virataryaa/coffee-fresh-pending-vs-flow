@@ -62,23 +62,6 @@ def render():
 
     l, r = st.columns(2, gap="medium")
     with l, st.container(border=True):
-        c.head("Flow vs fresh pending", "One dot per month. Amber: latest.")
-        xx = x.shift(lag, freq="MS").reindex(fpm.index)
-        m = xx.notna() & (fpm.index <= full)
-        fig = go.Figure()
-        fig.add_scatter(x=xx[m] * u, y=fpm[m] * u, mode="markers", marker=dict(size=8, color=c.NAVY, opacity=.75),
-                        text=[c.mlabel(i) for i in fpm[m].index], hovertemplate="%{text}<br>flow %{x:,.0f}<br>fresh pending %{y:,.0f}<extra></extra>")
-        if m.any():
-            li = fpm[m].index.max()
-            fig.add_scatter(x=[xx[li] * u], y=[fpm[li] * u], mode="markers+text", text=[c.mlabel(li)], textposition="top center",
-                            marker=dict(size=12, color=c.AMBER), textfont=dict(size=10, color=c.AXIS), hoverinfo="skip")
-            if pd.notna(row["conv"]):
-                mx = float(xx[m].max()) * u
-                fig.add_scatter(x=[0, mx], y=[0, mx * row["conv"]], mode="lines", line=dict(color=c.TEAL, dash="dot"), hoverinfo="skip")
-        c.style(fig, height=330, legend=False, hovermode="closest", xaxis=dict(title=f"flow ({un})", color=c.AXIS, gridcolor=c.GRID),
-                yaxis=dict(title=f"fresh pending ({un})", color=c.AXIS, gridcolor=c.GRID))
-        c.show(fig, "os_scatter")
-    with r, st.container(border=True):
         d = c.port_daily(mk)
         d = d[d["Origin"] == o].groupby("Date")[["Pending", "Passed", "Failed"]].sum()
         wk = d[["Passed", "Failed"]].resample("W-FRI").sum()
@@ -91,16 +74,14 @@ def render():
         c.style(fig, height=330, barmode="relative", bargap=0.1)
         c.show(fig, "os_outcome")
 
-    l, r = st.columns(2, gap="medium")
-    for col, (title, ser) in zip((l, r), [("Fresh pending by month", fpm), ("Flow by month", x[x.index >= pd.Timestamp("2021-01-01")])]):
-        with col, st.container(border=True):
-            c.head(title, "One line per year.")
-            fig = go.Figure()
-            yrs = sorted(ser.index.year.unique())
-            pal = c.YEAR_PAL[-len(yrs):] if len(yrs) <= len(c.YEAR_PAL) else c.PAL
-            for i, y in enumerate(yrs):
-                s = ser[ser.index.year == y]
-                fig.add_scatter(x=s.index.month, y=s * u, name=str(y), mode="lines+markers",
-                                line=dict(color=pal[i % len(pal)], width=2.6 if i == len(yrs) - 1 else 1.6), marker=dict(size=4))
-            c.style(fig, height=300, xaxis=dict(color=c.AXIS, showgrid=False, tickvals=list(range(1, 13)), ticktext=MONTHS))
-            c.show(fig, f"os_seas_{title[:4]}")
+    with r, st.container(border=True):
+        c.head("Fresh pending by month", "One line per year.")
+        fig = go.Figure()
+        yrs = sorted(fpm.index.year.unique())
+        pal = c.YEAR_PAL[-len(yrs):] if len(yrs) <= len(c.YEAR_PAL) else c.PAL
+        for i, y in enumerate(yrs):
+            s = fpm[fpm.index.year == y]
+            fig.add_scatter(x=s.index.month, y=s * u, name=str(y), mode="lines+markers",
+                            line=dict(color=pal[i % len(pal)], width=2.6 if i == len(yrs) - 1 else 1.6), marker=dict(size=4))
+        c.style(fig, height=330, xaxis=dict(color=c.AXIS, showgrid=False, tickvals=list(range(1, 13)), ticktext=MONTHS))
+        c.show(fig, "os_seas")
