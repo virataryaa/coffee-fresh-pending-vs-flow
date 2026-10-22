@@ -95,6 +95,7 @@ table.st td.lbl { text-align: left; color: #3a4466; font-weight: 500; }
 table.st td.l { text-align: left; }
 table.st td.up { color: #1f8a5c; } table.st td.dn { color: #c0392b; }
 table.st td.mut { color: #8a94a8; }
+table.st td.fill { color: #2a8c8c; font-style: italic; background: #f1f8f7; }
 table.st td.b { font-weight: 700; }
 table.st td.s3 { background: #dfe8f7; } table.st td.s2 { background: #edf2fb; } table.st td.s1 { background: #f7f9fd; }
 table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; border-top: 1px solid #e3e7f0; }

@@ -31,14 +31,20 @@ def render():
         c.show(fig, "ov_stack")
 
     with st.container(border=True):
-        c.head("Origin scorecard", "<b>Conversion</b> share of flow that reaches grading &nbsp;·&nbsp; <b>vs avg</b> latest flow vs the same month in past years")
-        yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
-                       format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
-        nc = c.nowcast_table(mk)
+        c.head("Origin scorecard", "Sorted by share of certs &nbsp;·&nbsp; <b>Conversion</b> share of flow that reaches grading "
+                                   "&nbsp;·&nbsp; <b>vs avg</b> latest flow vs the same month in past years &nbsp;·&nbsp; <b>~</b> uses filled flow")
+        a1, a2 = st.columns([1, 1.3])
+        with a1:
+            yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
+                           format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
+        with a2:
+            method = c.fill_picker("ov_fill")
+        nc = c.nowcast_table(mk, method)
         share = fpm[fpm.index <= full].sum()
         share = share / share.sum()
+        cshare = c.certs_share(mk)
         rows = []
-        for o in c.study_origins(mk):
+        for o in sorted(c.study_origins(mk), key=lambda o: -float(cshare.get(o, 0.0))):
             b = c.best_fit(o, mk)
             r = nc[nc["Origin"] == o] if not nc.empty else nc
             if b:
@@ -48,21 +54,22 @@ def render():
                 vs = (f.iloc[-1] / avg - 1) if avg and avg > 0 else float("nan")
                 rcls = "s3" if b["r"] >= .7 else "s2" if b["r"] >= .5 else "s1" if b["r"] >= .3 else "mut"
                 est = r[cur].iloc[0] if len(r) and cur in r and pd.notna(r[cur].iloc[0]) else float("nan")
-                cells = [f"{share.get(o, 0):.1%}", (b["source"], "l"), f"{b['lag']}m", (f"{b['r']:.2f}", rcls), f"{b['conv']:.0%}",
+                filled = len(r) and cur in r["filled"].iloc[0]
+                cells = [f"{cshare.get(o, 0):.1%}", f"{share.get(o, 0):.1%}", (b["source"], "l"), f"{b['lag']}m", (f"{b['r']:.2f}", rcls), f"{b['conv']:.0%}",
                          c.mlabel(lm), c.kfmt(f.iloc[-1] * u),
                          (f"{vs:+.0%}" if pd.notna(vs) else "–", "up" if pd.notna(vs) and vs > 0 else "dn" if pd.notna(vs) else "mut"),
-                         est_cell(est, b, lm, cur, u), c.kfmt(fpm.loc[cur, o] * u)]
+                         est_cell(est, b, lm, cur, u, filled), c.kfmt(fpm.loc[cur, o] * u)]
             else:
-                cells = [f"{share.get(o, 0):.1%}", ("no flow data", "l mut")] + ["–"] * 7 + [c.kfmt(fpm.loc[cur, o] * u)]
+                cells = [f"{cshare.get(o, 0):.1%}", f"{share.get(o, 0):.1%}", ("no flow data", "l mut")] + ["–"] * 7 + [c.kfmt(fpm.loc[cur, o] * u)]
             rows.append((o, cells, ""))
-        c.table(["Share", "Best source", "Lead", "r", "Conversion", "Flow month", "Flow", "vs last yr" if yrs == 1 else f"vs {yrs}y avg", f"Est. {cur:%b}", "MTD"], rows, corner="Origin")
+        c.table(["Certs share", "FP share", "Best source", "Lead", "r", "Conversion", "Flow month", "Flow", "vs last yr" if yrs == 1 else f"vs {yrs}y avg", f"Est. {cur:%b}", "MTD"], rows, corner="Origin")
         st.markdown("<div class='note'>Shading: r ≥ 0.7 / 0.5 / 0.3. Under 0.4 is likely noise.</div>", unsafe_allow_html=True)
 
 
-def est_cell(est, b, lm, cur, u):
-    """The estimate, or why there is none: a weak fit, or the flow month it needs is not published yet."""
+def est_cell(est, b, lm, cur, u, filled=False):
+    """The estimate ('~' when it rests on a filled flow month), or why there is none: a weak fit, or the flow is not out yet."""
     if pd.notna(est):
-        return c.kfmt(est * u)
+        return (f"~{c.kfmt(est * u)}", "fill") if filled else c.kfmt(est * u)
     if b["r"] < c.MIN_R:
         return ("weak fit", "mut")
     need = cur - pd.DateOffset(months=b["lag"])

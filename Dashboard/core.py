@@ -184,24 +184,74 @@ def fitted(origin: str, source: str, lag: int, mk: str) -> pd.Series:
     return flow(origin, source, mk).shift(lag, freq="MS") * float(conv.iloc[0])
 
 
+FILL_METHODS = ["Off", "Seasonal", "Last month", "3m average"]
+FILL_DESC = {"Off": "leave blank", "Seasonal": "same month last year x this year's pace vs last year (last 3 months)",
+             "Last month": "repeat the latest month", "3m average": "average of the latest 3 months"}
+
+
+def fill_method() -> str:
+    """Fill choice shared by every page (kept outside widget state so it survives page switches)."""
+    return st.session_state.get("fill_m", "Seasonal")
+
+
+def fill_picker(key: str) -> str:
+    m = st.radio("Missing flow months", FILL_METHODS, index=FILL_METHODS.index(fill_method()), horizontal=True, key=key,
+                 help="How to fill flow months that are not published yet, so every month gets an estimate")
+    st.session_state["fill_m"] = m
+    return m
+
+
+def fill_flow(x: pd.Series, until: pd.Timestamp, method: str):
+    """Extend a monthly flow past its last published month up to `until`. Returns (series, set of filled months)."""
+    x = x.dropna()
+    if method == "Off" or x.empty or x.index.max() >= until:
+        return x, set()
+    new = pd.date_range(x.index.max() + pd.DateOffset(months=1), until, freq="MS")
+    last3 = x.iloc[-3:]
+    if method == "Last month":
+        vals = [float(x.iloc[-1])] * len(new)
+    elif method == "3m average":
+        vals = [float(last3.mean())] * len(new)
+    else:                                    # Seasonal: last year's same month x this year's recent pace
+        prev = x.reindex(last3.index - pd.DateOffset(years=1))
+        pace = float(last3.sum() / prev.sum()) if prev.notna().all() and prev.sum() > 0 else 1.0
+        pace = min(max(pace, 0.5), 2.0)
+        vals = [float(x.get(m - pd.DateOffset(years=1), last3.mean())) * pace for m in new]
+    return pd.concat([x, pd.Series(vals, index=new)]), set(new)
+
+
 @st.cache_data(ttl=600)
-def nowcast_table(mk: str) -> pd.DataFrame:
-    """Per origin: the auto fit and its fresh pending estimate for the current and next months, where the lagged flow is already out."""
+def certs_share(mk: str) -> pd.Series:
+    """Each origin's share of certified stock at the market's ports on the latest report day."""
+    d = port_daily(mk)
+    last = d[d["Date"] == d["Date"].max()].groupby("Origin")["Certs"].sum()
+    return (last / last.sum()).sort_values(ascending=False) if last.sum() > 0 else last
+
+
+@st.cache_data(ttl=600)
+def nowcast_table(mk: str, method: str = "Off") -> pd.DataFrame:
+    """Per origin: the auto fit and its fresh pending estimate for the current and next months. Months whose lagged flow is
+    not published are filled with `method` (see fill_flow); `filled` lists those months."""
     cur = grading()["Date"].max().to_period("M").to_timestamp()
     months = [cur + pd.DateOffset(months=i) for i in range(0, AUTO_MAX_LAG + 1)]
     fpm = fp_monthly(mk)
+    share = certs_share(mk)
     rows = []
     for o in study_origins(mk):
         b = best_fit(o, mk)
         if not b or b["r"] < MIN_R:
             continue
-        fit = fitted(o, b["source"], b["lag"], mk)
-        row = dict(Origin=o, Source=b["source"], Lag=b["lag"], r=b["r"], Conv=b["conv"], n=b["n"],
-                   MTD=float(fpm.loc[cur, o]) if o in fpm and cur in fpm.index else 0.0)
+        x, filled = fill_flow(flow(o, b["source"], mk), months[-1] - pd.DateOffset(months=b["lag"]), method)
+        fit = x.shift(b["lag"], freq="MS") * b["conv"]
+        row = dict(Origin=o, Source=b["source"], Lag=b["lag"], r=b["r"], Conv=b["conv"], n=b["n"], Share=float(share.get(o, 0.0)),
+                   LastFlow=flow(o, b["source"], mk).dropna().index.max(),
+                   MTD=float(fpm.loc[cur, o]) if o in fpm and cur in fpm.index else 0.0,
+                   filled={m + pd.DateOffset(months=b["lag"]) for m in filled})
         for m in months:
             row[m] = float(fit.get(m, np.nan))
         rows.append(row)
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    return out.sort_values("Share", ascending=False).reset_index(drop=True) if not out.empty else out
 
 
 # ── format / charts ───────────────────────────────────────────────────────────────────────────────────────
