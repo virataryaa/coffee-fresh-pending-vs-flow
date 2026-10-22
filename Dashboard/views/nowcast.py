@@ -63,7 +63,7 @@ def render():
         st.markdown(f"<div class='note'>Weak fit = r below {c.MIN_R:.1f}, not used for estimates.</div>", unsafe_allow_html=True)
 
     with st.container(border=True):
-        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Diamond</b> month to date")
+        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Band</b> middle 60% of past misses{D}<b>Diamond</b> month to date")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
         idx = pd.date_range(c.STUDY_START, max(months), freq="MS")
         F = pd.concat(fits, axis=1).reindex(idx)
@@ -72,7 +72,12 @@ def render():
         for m in months:                                     # months ahead: the table's estimates (incl. filled flow)
             est[m] = tot[m]
         done = idx <= full
+        res = (act[done] - est[done]).dropna()                # past misses: actual - expected
+        lo_q, hi_q = (res.quantile(.2), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
         fig = go.Figure()
+        fig.add_scatter(x=idx, y=(est + hi_q).clip(lower=0) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
+        fig.add_scatter(x=idx, y=(est + lo_q).clip(lower=0) * u, mode="lines", line=dict(width=0), fill="tonexty",
+                        fillcolor="rgba(42,140,140,.14)", name="Range", hovertemplate="range %{y:,.0f}<extra></extra>")
         fig.add_bar(x=idx[done], y=act[done] * u, name="Actual", marker_color=c.NAVY, marker_line_width=0)
         fig.add_bar(x=idx[~done], y=est[~done] * u, name="Estimate", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
                                                                                  pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
@@ -85,4 +90,4 @@ def render():
         ok = a.notna() & e.notna()
         if ok.sum() > 3:
             st.markdown(f"<div class='note'>r {np.corrcoef(a[ok], e[ok])[0, 1]:.2f} · avg error {c.kfmt((a[ok] - e[ok]).abs().mean() * u)} {un}/month "
-                        f"· avg actual {c.kfmt(a[ok].mean() * u)}</div>", unsafe_allow_html=True)
+                        f"· avg actual {c.kfmt(a[ok].mean() * u)} · band = expected {c.kfmt(lo_q * u)} to +{c.kfmt(hi_q * u)}</div>", unsafe_allow_html=True)
