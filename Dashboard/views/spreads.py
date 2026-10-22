@@ -52,14 +52,12 @@ def render():
     if tab == "Spread vs stock":
         # ── 1. levels over time ──────────────────────────────────────────────────────────────────────────────
         with st.container(border=True):
-            c.head("Spread vs certs + pending", "<b>Blue</b> certs &nbsp;·&nbsp; <b>Gold</b> pending &nbsp;·&nbsp; <b>Red</b> 1/2 spread &nbsp;·&nbsp; <b>Ticks</b> rolls")
+            c.head("Spread vs certs + pending", "<b>Blue</b> certs &nbsp;·&nbsp; <b>Gold</b> pending &nbsp;·&nbsp; <b>Red</b> 1/2 spread")
             ss = s[s.index >= c.STUDY_START]
             fig = go.Figure()
             fig.add_scatter(x=p.index, y=p["Certs"] * u, name="Certs", stackgroup="a", mode="none", fillcolor="rgba(31,59,115,.55)")
             fig.add_scatter(x=p.index, y=p["Pending"] * u, name="Pending", stackgroup="a", mode="none", fillcolor="rgba(201,151,63,.55)")
             fig.add_scatter(x=ss.index, y=ss["spread"], name="1/2 spread", yaxis="y2", mode="lines", line=dict(color=c.RED, width=1.8))
-            r = ss[ss["roll"]]
-            fig.add_scatter(x=r.index, y=r["spread"], name="roll", yaxis="y2", mode="markers", marker=dict(symbol="line-ns-open", size=10, color=c.GREY))
             c.style(fig, height=360, y2=dict(title="c/lb", hoverformat=".2f"), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
             c.show(fig, "sp_levels")
 
@@ -68,22 +66,21 @@ def render():
         pe = p.groupby(p.index.to_period("M").to_timestamp()).last()
         m = pd.concat([sm.rename("spread"), pe["Certs"], pe["Pending"]], axis=1).dropna()
         m["Pool"] = m["Certs"] + m["Pending"]
-        fits = {}
-        with st.container(border=True):
-            c.head("Spread vs stock: certs vs certs + pending", "Each dot is a month &nbsp;·&nbsp; higher R² = stock explains the spread better &nbsp;·&nbsp; <b>Ring</b> latest")
-            fig = go.Figure()
-            for col, name, colr in [("Certs", "Certs", c.NAVY), ("Pool", "Certs + pending", c.AMBER)]:
-                a, b, r2 = _lnfit(m[col].values / 1000, m["spread"].values)
-                fits[col] = (a, b, r2)
-                fig.add_scatter(x=m[col] * u, y=m["spread"], mode="markers", name=f"{name} (R² {r2:.2f})", marker=dict(size=7, color=colr, opacity=.7),
+        cols = st.columns(2, gap="medium")
+        for col_, (col, name, colr) in zip(cols, [("Certs", "Certs", c.NAVY), ("Pool", "Certs + pending", c.AMBER)]):
+            a, b, r2 = _lnfit(m[col].values / 1000, m["spread"].values)
+            with col_, st.container(border=True):
+                c.head(f"Spread vs {name.lower()} · R² {r2:.2f}", "Each dot is a month &nbsp;·&nbsp; dotted: log fit &nbsp;·&nbsp; <b>Ring</b> latest")
+                fig = go.Figure()
+                fig.add_scatter(x=m[col] * u, y=m["spread"], mode="markers", marker=dict(size=8, color=colr, opacity=.75),
                                 text=[c.mlabel(i) for i in m.index], hovertemplate="%{text}: %{x:,.0f} | %{y:.2f} c/lb<extra></extra>")
                 xs = np.linspace(m[col].min(), m[col].max(), 50)
-                fig.add_scatter(x=xs * u, y=a + b * np.log(xs / 1000), mode="lines", line=dict(color=colr, dash="dot"), showlegend=False, hoverinfo="skip")
-                fig.add_scatter(x=[m[col].iloc[-1] * u], y=[m["spread"].iloc[-1]], mode="markers", showlegend=False, hoverinfo="skip",
-                                marker=dict(size=14, color="rgba(0,0,0,0)", line=dict(color=colr, width=2.2)))
-            c.style(fig, height=340, hovermode="closest", fmt=".2f", xaxis=dict(title=f"stock ({un})", color=c.AXIS, gridcolor=c.GRID),
-                    yaxis=dict(title="c/lb", color=c.AXIS, gridcolor=c.GRID))
-            c.show(fig, "sp_fit")
+                fig.add_scatter(x=xs * u, y=a + b * np.log(xs / 1000), mode="lines", line=dict(color=colr, dash="dot"), hoverinfo="skip")
+                fig.add_scatter(x=[m[col].iloc[-1] * u], y=[m["spread"].iloc[-1]], mode="markers", hoverinfo="skip",
+                                marker=dict(size=15, color="rgba(0,0,0,0)", line=dict(color=c.RED, width=2.4)))
+                c.style(fig, height=340, legend=False, hovermode="closest", fmt=".2f", xaxis=dict(title=f"{name.lower()} ({un})", color=c.AXIS, gridcolor=c.GRID),
+                        yaxis=dict(title="1/2 spread c/lb", color=c.AXIS, gridcolor=c.GRID))
+                c.show(fig, f"sp_fit_{col}")
 
     elif tab == "Fresh pending effect":
         # ── 3. does fresh pending move the spread? ───────────────────────────────────────────────────────────
