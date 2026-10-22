@@ -141,17 +141,7 @@ def excess_study(bel, fp, yrs, M, u):
                 yaxis=dict(title="fresh pending", color=c.AXIS, gridcolor=c.GRID))
         c.show(fig, "bx_sc")
 
-    l, r = st.columns([1, 1.6], gap="medium")
-    with l, st.container(border=True):
-        c.head("After excess vs after shortfall", f"Average Brazil fresh pending {lag}m after each kind of month")
-        groups = [("Shortfall", xs < 0, c.RED), ("Excess", xs >= 0, c.GREEN)]
-        vals = [(n, fp[m_ & ok].mean(), int((m_ & ok).sum()), col) for n, m_, col in groups]
-        fig = go.Figure(go.Bar(x=[v[0] for v in vals], y=[v[1] * u for v in vals], marker_color=[v[3] for v in vals],
-                               text=[f"{c.kfmt(v[1] * u)}<br>n {v[2]}" for v in vals], textposition="outside", cliponaxis=False,
-                               textfont=dict(size=11, color=c.AXIS), hovertemplate="%{x}: %{y:,.0f}<extra></extra>"))
-        c.style(fig, height=320, legend=False, hovermode="closest", bargap=0.45)
-        c.show(fig, "bx_bucket")
-    with r, st.container(border=True):
+    with st.container(border=True):
         c.head("Lead-lag: excess vs raw flow", "Correlation with fresh pending at each lead. Taller = better guide")
         rows_ex, rows_raw = [], []
         for k in range(4):
