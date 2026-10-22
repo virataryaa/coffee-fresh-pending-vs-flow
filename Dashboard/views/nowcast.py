@@ -1,4 +1,4 @@
-"""Nowcast: flows already shipped imply the fresh pending still to come. Per-origin estimate, total, and the in-sample fit."""
+"""Forecast: flows already shipped imply the fresh pending still to come. Per-origin estimate, total, and the in-sample fit."""
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -24,7 +24,7 @@ def render():
     mk = c.market()
     M = c.MARKETS[mk]
     u, un = c.unit_factor(), c.unit_name()
-    c.page_title(f"Nowcast · {M['where']}", "Fresh pending expected from coffee already shipped")
+    c.page_title(f"Forecast · {M['where']}", "Fresh pending expected from coffee already shipped")
     nc = c.nowcast_table(mk)
     if nc.empty:
         st.info("No origin has a usable fit.")
@@ -38,7 +38,7 @@ def render():
 
     with st.container(border=True):
         fill_txt = f"{D}<b>~ tinted</b> uses filled flow (average of 3 methods, compared below)"
-        c.head("By origin", f"Sorted by share of certs{D}Estimate = flow from 'lead' months earlier x conversion{fill_txt}")
+        c.head("By origin", f"Sorted by share of certs{D}Forecast = flow from 'lead' months earlier x conversion{fill_txt}")
         fitted = {r["Origin"]: r for _, r in nc.iterrows()}
         rows = []
         for o in sorted(c.study_origins(mk), key=lambda o: -float(share.get(o, 0.0))):
@@ -58,11 +58,11 @@ def render():
             rows.append((o, cells, ""))
         rows.append(("Total", ["", "", "", "", ""] + [c.kfmt(tot[m] * u) if pd.notna(tot[m]) else "" for m in months]
                      + [c.kfmt(nc["MTD"].sum() * u)], "tot"))
-        c.table(["Certs share", "Source", "Lead", "r", "Conversion"] + [f"Est. {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
-        st.markdown(f"<div class='note'>Weak fit = r below {c.MIN_R:.1f}, not used for estimates.</div>", unsafe_allow_html=True)
+        c.table(["Certs share", "Source", "Lead", "r", "Conversion"] + [f"Fcst {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
+        st.markdown(f"<div class='note'>Weak fit = r below {c.MIN_R:.1f}, not used for forecasts.</div>", unsafe_allow_html=True)
 
     with st.container(border=True):
-        c.head("Fill methods compared", f"Total estimate under each way of filling unpublished flow months{D}<b>Average</b> is what the tables use")
+        c.head("Fill methods compared", f"Total forecast under each way of filling unpublished flow months{D}<b>Average</b> is what the tables use")
         rows = []
         for meth in c.FILL_METHODS + ["Average", "Off"]:
             t = nc if meth == c.DEFAULT_FILL else c.nowcast_table(mk, meth)
@@ -70,10 +70,10 @@ def render():
             label = "No fill (published flow only)" if meth == "Off" else meth
             rows.append((label, [(c.FILL_DESC[meth], "l mut")] + [c.kfmt(v * u) if pd.notna(v) else "" for v in vals],
                          "tot" if meth == "Average" else ""))
-        c.table(["How"] + [f"Est. {m:%b-%y}" for m in months], rows, corner="Method")
+        c.table(["How"] + [f"Fcst {m:%b-%y}" for m in months], rows, corner="Method")
 
     with st.container(border=True):
-        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Diamond</b> so far this period"
+        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> forecast ahead{D}<b>Diamond</b> so far this period"
                               f"{D}<b>Dark band</b> 1 in 4 past periods landed inside it{D}<b>Light band</b> 1 in 2 did")
         view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], horizontal=True, key="nc_view",
                         help="Grouping smooths out coffee that is graded a few weeks earlier or later than expected")
@@ -114,7 +114,7 @@ def render():
             fig.add_scatter(x=x, y=(E - w).clip(lower=0) * u, mode="lines", line=dict(width=0), fill="tonexty",
                             fillcolor=shade, name=name, hoverinfo="skip")
         fig.add_bar(x=x[ok_done.values], y=A[ok_done] * u, name="Actual", marker_color=c.NAVY, marker_line_width=0)
-        fig.add_bar(x=x[~ok_done.values], y=B[~ok_done] * u, name="Estimate", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
+        fig.add_bar(x=x[~ok_done.values], y=B[~ok_done] * u, name="Forecast", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
                                                                                           pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
         cur_x = [p_ for p_ in x[~ok_done.values] if SF.get(p_, 0) > 0][:1]
         if cur_x:

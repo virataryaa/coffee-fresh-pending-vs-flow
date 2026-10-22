@@ -27,7 +27,7 @@ if _data_state().get("ver") != _ver:
 PAGES = {"Overview": overview.render, "Origin Study": origin.render, "Brazil": brazil.render,
          "Nowcast": nowcast.render, "Spreads": spreads.render, "Data": data.render}
 LABELS = {"Overview": "Grading Overview", "Origin Study": "Origin Deep Dive", "Brazil": "Brazil Focus",
-          "Nowcast": "Flow Nowcast", "Spreads": "Spread Impact", "Data": "Data Sources"}
+          "Nowcast": "Forecast", "Spreads": "Spread Impact", "Data": "Data Sources"}
 
 with st.sidebar:
     st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>KC grading vs origin flows</div>",
