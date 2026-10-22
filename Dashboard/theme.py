@@ -74,6 +74,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .chart-head { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin-bottom: 3px; letter-spacing: -.005em; }
 .card-desc { color: #2b3452; font-size: .9rem; margin-top: 0; margin-bottom: 8px; line-height: 1.45; }
 .card-desc b { color: #0a2463; }
+[data-testid="stMain"] [data-baseweb="select"], [data-testid="stMain"] [data-testid="stSelectbox"] > div { background: transparent !important; box-shadow: none !important; }
 /* Glass dropdowns (main area): frosted pill, soft navy glow on hover / focus, frosted menu */
 [data-testid="stMain"] [data-baseweb="select"] > div {
   background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(238,242,250,.62)) !important;
