@@ -38,7 +38,7 @@ def render():
     fit = c.fitted(o, src, lag, mk)
     rtxt = f"{row['r']:.2f}" if pd.notna(row["r"]) else "–"
     ctxt = f"{row['conv']:.0%}" if pd.notna(row["conv"]) else "–"
-    st.markdown(f"<div class='card-desc'>r <b>{rtxt}</b> · conversion <b>{ctxt}</b> · {int(row['n'])} months</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-desc'>r <b>{rtxt}</b> · R² <b>{row['r'] ** 2:.2f}</b> · conversion <b>{ctxt}</b> · {int(row['n'])} months</div>", unsafe_allow_html=True)
 
     l, r = st.columns([2, 1.2], gap="medium")
     with l, st.container(border=True):
@@ -57,7 +57,8 @@ def render():
         xx = x.shift(lag, freq="MS").reindex(fpm.index)
         m = xx.notna() & (fpm.index <= full)
         r2 = row["r"] ** 2 if pd.notna(row["r"]) else float("nan")
-        c.head(f"Correlation · R² {r2:.2f}" if pd.notna(r2) else "Correlation", f"Each dot is a month &nbsp;·&nbsp; <b>Orange</b> latest")
+        c.head(f"Correlation · r {rtxt} · R² {r2:.2f}" if pd.notna(r2) else "Correlation",
+               "R² = r × r, the share of the moves the flow explains &nbsp;·&nbsp; <b>Orange</b> latest month")
         fig = go.Figure()
         fig.add_scatter(x=xx[m] * u, y=fpm[m] * u, mode="markers", marker=dict(size=8, color=c.NAVY, opacity=.75),
                         text=[c.mlabel(i) for i in fpm[m].index], hovertemplate="%{text}<br>flow %{x:,.0f}<br>fresh pending %{y:,.0f}<extra></extra>")
