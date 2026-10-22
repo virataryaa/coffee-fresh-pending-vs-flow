@@ -27,12 +27,32 @@ FUND = ROOT.parents[1] / "Fundamental"
 SRC_GRADING = FUND / "Daily Miner" / "Database" / "Main" / "KC" / "kc_grading.parquet"
 SRC_TDM = FUND / "TDM Pro" / "Comprehensive TDM" / "Database" / "Coffee"
 SRC_CECAFE = FUND / "Cecafe Daily" / "Database" / "cecafe_destinations.csv"
+SRC_CERTS = FUND / "Daily Miner" / "Database" / "Main" / "KC" / "kc_certs.parquet"
 SRC_PRICE = FUND / "Daily Miner" / "Database" / "Main" / "KC" / "price_link_kc.parquet"
 OUT = ROOT / "Database"
 
 BAGS_PER_TONNE = 1000 / 60
 GREEN_HS = 90111          # green, not decaffeinated (90112 decaf is never graded)
 TDM_START = 2019
+
+
+ORIGIN_CODES = {"BRZ": "Brazil", "BUR": "Burundi", "COL": "Colombia", "COS": "Costa Rica", "ELS": "El Salvador", "HON": "Honduras",
+                "IND": "India", "MEX": "Mexico", "NIC": "Nicaragua", "PAN": "Papua New Guinea", "PER": "Peru", "RWA": "Rwanda",
+                "TAN": "Tanzania", "UGA": "Uganda", "VEN": "Venezuela", "GUA": "Guatemala"}
+PORT_CODES = {"AN": "Antwerp", "BA": "Barcelona", "HA": "Ham/Bre", "HO": "Houston", "MI": "Miami", "NO": "New Orleans", "NY": "New York"}
+
+
+def lseg_certs() -> pd.DataFrame:
+    """Daily certs per origin x port from LSEG KC-{origin}-{port} RICs (no Kenya / Virginia RICs: those keep the report value)."""
+    k = pd.read_parquet(SRC_CERTS)
+    k = k.set_index("Date") if "Date" in k.columns else k
+    cols = [c for c in k.columns if c.count("-") == 2 and c.split("-")[1] in ORIGIN_CODES and c.split("-")[2] in PORT_CODES]
+    m = k[cols].astype("float64").reset_index().melt(id_vars=k.index.name or "Date", var_name="ric", value_name="CertsLSEG")
+    m = m.rename(columns={k.index.name or "Date": "Date"}).dropna(subset=["CertsLSEG"])
+    m["Origin"] = m["ric"].str.split("-").str[1].map(ORIGIN_CODES)
+    m["Port"] = m["ric"].str.split("-").str[2].map(PORT_CODES)
+    m["Date"] = pd.to_datetime(m["Date"])
+    return m[["Date", "Port", "Origin", "CertsLSEG"]]
 
 
 def build_grading() -> pd.DataFrame:
@@ -49,7 +69,11 @@ def build_grading() -> pd.DataFrame:
     full = keys.merge(pd.DataFrame({"Date": days}), how="cross")
     w = full.merge(w, on=["Date", "Port", "Origin"], how="left")
     w[["Pending", "Passed", "Failed"]] = w[["Pending", "Passed", "Failed"]].fillna(0.0)
-    w = w.sort_values(["Port", "Origin", "Date"])
+    # The ICE report only carries a Certs block on some days; daily certs come from LSEG (kc_certs.parquet, same numbers as ICE).
+    lseg = lseg_certs()
+    w = w.merge(lseg, on=["Date", "Port", "Origin"], how="left")
+    w["Certs"] = w["CertsLSEG"].fillna(w["Certs"])
+    w = w.drop(columns="CertsLSEG").sort_values(["Port", "Origin", "Date"])
     w["Certs"] = w.groupby(["Port", "Origin"])["Certs"].ffill().fillna(0.0)
     w["FreshPending"] = w.groupby(["Port", "Origin"])["Pending"].diff() + w["Passed"] + w["Failed"]
     w["Date"] = pd.to_datetime(w["Date"])
