@@ -31,7 +31,9 @@ def render():
         c.show(fig, "ov_stack")
 
     with st.container(border=True):
-        c.head("Origin scorecard", "Conversion = share of flow that reaches grading. vs 3y = latest flow vs same month, last 3 years.")
+        c.head("Origin scorecard", "Conversion = share of flow that reaches grading. vs avg = latest flow vs same month, averaged over past years.")
+        yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
+                       format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
         nc = c.nowcast_table(mk)
         share = fpm[fpm.index <= full].sum()
         share = share / share.sum()
@@ -42,7 +44,7 @@ def render():
             if b:
                 f = c.flow(o, b["source"], mk).dropna()
                 lm = f.index.max()
-                avg = f[[lm - pd.DateOffset(years=k) for k in (1, 2, 3) if lm - pd.DateOffset(years=k) in f.index]].mean()
+                avg = f[[lm - pd.DateOffset(years=k) for k in range(1, yrs + 1) if lm - pd.DateOffset(years=k) in f.index]].mean()
                 vs = (f.iloc[-1] / avg - 1) if avg and avg > 0 else float("nan")
                 rcls = "s3" if b["r"] >= .7 else "s2" if b["r"] >= .5 else "s1" if b["r"] >= .3 else "mut"
                 est = r[cur].iloc[0] if len(r) and cur in r and pd.notna(r[cur].iloc[0]) else float("nan")
@@ -53,5 +55,5 @@ def render():
             else:
                 cells = [f"{share.get(o, 0):.1%}", ("no flow data", "l mut")] + ["–"] * 7 + [c.kfmt(fpm.loc[cur, o] * u)]
             rows.append((o, cells, ""))
-        c.table(["Share", "Best source", "Lead", "r", "Conversion", "Flow month", "Flow", "vs 3y", f"Est. {cur:%b}", "MTD"], rows, corner="Origin")
+        c.table(["Share", "Best source", "Lead", "r", "Conversion", "Flow month", "Flow", "vs last yr" if yrs == 1 else f"vs {yrs}y avg", f"Est. {cur:%b}", "MTD"], rows, corner="Origin")
         st.markdown("<div class='note'>Shading: r ≥ 0.7 / 0.5 / 0.3. Under 0.4 is likely noise.</div>", unsafe_allow_html=True)
