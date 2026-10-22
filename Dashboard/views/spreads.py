@@ -62,24 +62,39 @@ def render():
             st.markdown(f"<div class='note'>Latest spread {sp_now:.2f} c/lb ({s['active_label'].ffill().iloc[-1]}, {last:%d-%b}) · certs and pending summed over all ports</div>",
                         unsafe_allow_html=True)
 
-        # ── 2. does pending add to certs? ────────────────────────────────────────────────────────────────────
-        sm = s["spread"].groupby(s.index.to_period("M").to_timestamp()).mean()
-        pe = p.groupby(p.index.to_period("M").to_timestamp()).last()
-        m = pd.concat([sm.rename("spread"), pe["Certs"], pe["Pending"]], axis=1).dropna()
+        # ── 2. spread against stock and against fresh pending, at a chosen frequency ────────────────────────
+        freq = st.radio("Each dot is a", ["Day", "Week", "Month"], index=2, horizontal=True, key="sp_freq")
+        rule = {"Day": None, "Week": "W-FRI", "Month": "MS"}[freq]
+        days = p.index.intersection(s.index)                  # report days that also have a spread print
+        if rule is None:
+            m = pd.concat([s.loc[days, "spread"], p.loc[days, ["Certs", "Pending", "FreshPending"]]], axis=1)
+        else:
+            m = pd.concat([s["spread"][s.index >= c.STUDY_START].resample(rule).mean(),
+                           p[["Certs", "Pending"]].resample(rule).last(), p["FreshPending"].resample(rule).sum(min_count=1)], axis=1)
+        m = m.dropna()
         m["Pool"] = m["Certs"] + m["Pending"]
-        cols = st.columns(2, gap="medium")
-        for col_, (col, name, colr) in zip(cols, [("Certs", "Certs", c.NAVY), ("Pool", "Certs + pending", c.AMBER)]):
-            a, b, r2 = _lnfit(m[col].values / 1000, m["spread"].values)
+        lab = {"Day": "%d-%b-%y", "Week": "wk %d-%b-%y", "Month": "%b-%y"}[freq]
+        cols = st.columns(3, gap="medium")
+        for col_, (col, name, colr, kind) in zip(cols, [("Certs", "Certs", c.NAVY, "log"), ("Pool", "Certs + pending", c.AMBER, "log"),
+                                                        ("FreshPending", "Fresh pending", c.TEAL, "line")]):
+            if kind == "log":
+                a, b, r2 = _lnfit(m[col].values / 1000, m["spread"].values)
+            else:
+                b, a = np.polyfit(m[col], m["spread"], 1) if len(m) > 5 else (np.nan, np.nan)
+                r2 = m[col].corr(m["spread"]) ** 2 if len(m) > 5 else np.nan
             with col_, st.container(border=True):
-                c.head(f"Spread vs {name.lower()} · R² {r2:.2f}", "Each dot is a month &nbsp;·&nbsp; dotted: log fit &nbsp;·&nbsp; <b>Ring</b> latest")
+                c.head(f"Spread vs {name.lower()} · R² {r2:.2f}",
+                       f"Each dot is a {freq.lower()}{' (summed)' if col == 'FreshPending' and freq != 'Day' else ''} &nbsp;·&nbsp; "
+                       f"dotted: {'log' if kind == 'log' else 'straight-line'} fit &nbsp;·&nbsp; <b>Ring</b> latest")
                 fig = go.Figure()
-                fig.add_scatter(x=m[col] * u, y=m["spread"], mode="markers", marker=dict(size=8, color=colr, opacity=.75),
-                                text=[c.mlabel(i) for i in m.index], hovertemplate="%{text}: %{x:,.0f} | %{y:.2f} c/lb<extra></extra>")
+                fig.add_scatter(x=m[col] * u, y=m["spread"], mode="markers", marker=dict(size=5 if freq == "Day" else 8, color=colr, opacity=.6 if freq == "Day" else .75),
+                                text=[i.strftime(lab) for i in m.index], hovertemplate="%{text}: %{x:,.0f} | %{y:.2f} c/lb<extra></extra>")
                 xs = np.linspace(m[col].min(), m[col].max(), 50)
-                fig.add_scatter(x=xs * u, y=a + b * np.log(xs / 1000), mode="lines", line=dict(color=colr, dash="dot"), hoverinfo="skip")
+                ys = a + b * np.log(np.clip(xs, 1, None) / 1000) if kind == "log" else a + b * xs
+                fig.add_scatter(x=xs * u, y=ys, mode="lines", line=dict(color=colr, dash="dot"), hoverinfo="skip")
                 fig.add_scatter(x=[m[col].iloc[-1] * u], y=[m["spread"].iloc[-1]], mode="markers", hoverinfo="skip",
                                 marker=dict(size=15, color="rgba(0,0,0,0)", line=dict(color=c.RED, width=2.4)))
-                c.style(fig, height=340, legend=False, hovermode="closest", fmt=".2f", xaxis=dict(title=f"{name.lower()} ({un})", color=c.AXIS, gridcolor=c.GRID),
+                c.style(fig, height=330, legend=False, hovermode="closest", fmt=".2f", xaxis=dict(title=f"{name.lower()} ({un})", color=c.AXIS, gridcolor=c.GRID),
                         yaxis=dict(title="1/2 spread c/lb", color=c.AXIS, gridcolor=c.GRID))
                 c.show(fig, f"sp_fit_{col}")
 
