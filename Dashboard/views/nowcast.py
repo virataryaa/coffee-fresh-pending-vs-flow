@@ -61,8 +61,7 @@ def render():
         c.table(["Certs share", "Source", "Lead", "r", "Conversion"] + [f"Fcst {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
         st.markdown(f"<div class='note'>Weak fit = r below {c.MIN_R:.1f}, not used for forecasts.</div>", unsafe_allow_html=True)
 
-    with st.container(border=True):
-        c.head("Fill methods compared", f"Total forecast under each way of filling unpublished flow months{D}<b>Average</b> is what the tables use")
+    with st.expander("Fill methods compared: total forecast under each way of filling unpublished flow months (Average is used above)"):
         rows = []
         for meth in c.FILL_METHODS + ["Average", "Off"]:
             t = nc if meth == c.DEFAULT_FILL else c.nowcast_table(mk, meth)

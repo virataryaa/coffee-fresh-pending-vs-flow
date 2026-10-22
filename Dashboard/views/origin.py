@@ -14,6 +14,7 @@ def render():
     M = c.MARKETS[mk]
     u = c.unit_factor()
     c.page_title(f"Origin Study · {M['where']}")
+    tab = c.subtabs(['Fit', 'Seasonality'], "os_tab")
     origins = c.study_origins(mk)
     o = st.radio("Origin", origins, horizontal=True, key=f"os_origin_{mk}", label_visibility="collapsed")
     b = c.best_fit(o, mk)
@@ -39,7 +40,6 @@ def render():
     rtxt = f"{row['r']:.2f}" if pd.notna(row["r"]) else "–"
     ctxt = f"{row['conv']:.0%}" if pd.notna(row["conv"]) else "–"
     st.markdown(f"<div class='card-desc'>r <b>{rtxt}</b> · R² <b>{row['r'] ** 2:.2f}</b> · conversion <b>{ctxt}</b> · {int(row['n'])} months</div>", unsafe_allow_html=True)
-    tab = c.subtabs(['Fit', 'Seasonality'], "os_tab")
 
     if tab == "Fit":
         l, r = st.columns([2, 1.2], gap="medium")

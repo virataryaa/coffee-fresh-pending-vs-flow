@@ -270,7 +270,7 @@ def head(title, desc=""):
 
 def subtabs(options, key):
     """Sub-tab switch drawn as pills. Unlike st.tabs only the picked tab's code runs."""
-    return st.radio("View", options, horizontal=True, key=key, label_visibility="collapsed")
+    return st.radio("View", options, horizontal=True, key=f"subtab_{key}", label_visibility="collapsed")
 
 
 def group(title, sub=""):
