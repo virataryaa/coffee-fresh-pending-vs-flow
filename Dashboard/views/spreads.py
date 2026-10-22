@@ -45,8 +45,7 @@ def render():
     s, p = spread(), pool()
     last = s.index.max()
     sp_now = s["spread"].iloc[-1]
-    c.page_title("Spreads · KC 1/2 vs the grading pipeline",
-                 f"Spread {sp_now:.2f} c/lb ({s['active_label'].ffill().iloc[-1]}, {last:%d-%b}). All ports. Changes skip roll days.")
+    c.page_title("Spreads · KC 1/2 vs the grading pipeline")
     tab = c.subtabs(['Spread vs stock', 'Fresh pending effect'], "sp_tab")
 
     if tab == "Spread vs stock":
@@ -60,6 +59,8 @@ def render():
             fig.add_scatter(x=ss.index, y=ss["spread"], name="1/2 spread", yaxis="y2", mode="lines", line=dict(color=c.RED, width=1.8))
             c.style(fig, height=360, y2=dict(title="c/lb", hoverformat=".2f"), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
             c.show(fig, "sp_levels")
+            st.markdown(f"<div class='note'>Latest spread {sp_now:.2f} c/lb ({s['active_label'].ffill().iloc[-1]}, {last:%d-%b}) · certs and pending summed over all ports</div>",
+                        unsafe_allow_html=True)
 
         # ── 2. does pending add to certs? ────────────────────────────────────────────────────────────────────
         sm = s["spread"].groupby(s.index.to_period("M").to_timestamp()).mean()
@@ -108,5 +109,5 @@ def render():
             c.style(fig, height=340, legend=False, hovermode="closest", fmt="+.2f", xaxis=dict(title=f"fresh pending ({un})", color=c.AXIS, gridcolor=c.GRID),
                     yaxis=dict(title="Δ spread c/lb", color=c.AXIS, gridcolor=c.GRID, zeroline=True, zerolinecolor="rgba(15,23,42,.25)"))
             c.show(fig, "sp_fp")
-            st.markdown("<div class='note'>r by months ahead: " + " · ".join(f"<b>{k}m</b> {r:+.2f} (n {n})" for k, r, n in rows) + "</div>",
+            st.markdown("<div class='note'>Spread change skips roll days · r by months ahead: " + " · ".join(f"<b>{k}m</b> {r:+.2f} (n {n})" for k, r, n in rows) + "</div>",
                         unsafe_allow_html=True)
