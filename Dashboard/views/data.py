@@ -1,5 +1,4 @@
 """Data: freshness of each source, report-day coverage, and the caveats that matter when reading the study."""
-import plotly.graph_objects as go
 import streamlit as st
 
 import core as c

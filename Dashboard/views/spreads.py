@@ -45,7 +45,6 @@ def render():
     s, p = spread(), pool()
     last = s.index.max()
     sp_now = s["spread"].iloc[-1]
-    certs, pend = p["Certs"].iloc[-1], p["Pending"].iloc[-1]
     c.page_title("Spreads · KC 1/2 vs the grading pipeline",
                  f"Spread {sp_now:.2f} c/lb ({s['active_label'].ffill().iloc[-1]}, {last:%d-%b}). All ports. Changes skip roll days.")
 

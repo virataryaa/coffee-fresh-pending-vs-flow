@@ -11,7 +11,7 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 def render():
     mk = c.market()
     M = c.MARKETS[mk]
-    u, un = c.unit_factor(), c.unit_name()
+    u = c.unit_factor()
     c.page_title(f"Origin Study · {M['where']}")
     origins = c.study_origins(mk)
     o = st.radio("Origin", origins, horizontal=True, key=f"os_origin_{mk}", label_visibility="collapsed")

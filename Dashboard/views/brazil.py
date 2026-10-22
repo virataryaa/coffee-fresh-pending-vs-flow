@@ -5,8 +5,6 @@ import streamlit as st
 
 import core as c
 
-CY_START = 7          # Brazil crop year Jul-Jun, as in the Cecafe apps
-MONTHS = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"]
 
 
 def _normal(s: pd.Series, m: pd.Timestamp, years=5) -> float:
@@ -26,10 +24,6 @@ def render():
         st.info("No Cecafe data.")
         return
     share = (bel / allb).dropna()
-    cy = lambda m: m.year if m.month >= CY_START else m.year - 1          # noqa: E731
-    pos = lambda m: (m.month - CY_START) % 12                             # noqa: E731
-    cyid = pd.Series([cy(m) for m in bel.index], index=bel.index)
-    cur_cy = cy(bel.index.max())
     fp = c.fp_monthly(mk).get("Brazil", pd.Series(dtype=float))
 
     with st.container(border=True):
