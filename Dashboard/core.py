@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -241,6 +240,11 @@ def show(fig, key):
 
 def head(title, desc=""):
     st.markdown(f"<div class='chart-head'>{title}</div>" + (f"<div class='card-desc'>{desc}</div>" if desc else ""), unsafe_allow_html=True)
+
+
+def subtabs(options, key):
+    """Sub-tab switch drawn as pills. Unlike st.tabs only the picked tab's code runs."""
+    return st.radio("View", options, horizontal=True, key=key, label_visibility="collapsed")
 
 
 def page_title(title, sub=""):
