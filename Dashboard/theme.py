@@ -74,6 +74,23 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .chart-head { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin-bottom: 3px; letter-spacing: -.005em; }
 .card-desc { color: #2b3452; font-size: .9rem; margin-top: 0; margin-bottom: 8px; line-height: 1.45; }
 .card-desc b { color: #0a2463; }
+/* Glass dropdowns (main area): frosted pill, soft navy glow on hover / focus, frosted menu */
+[data-testid="stMain"] [data-baseweb="select"] > div {
+  background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(238,242,250,.62)) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(170%); backdrop-filter: blur(14px) saturate(170%);
+  border: 1px solid rgba(255,255,255,.9) !important; border-radius: 999px !important; min-height: 34px;
+  box-shadow: 0 1px 2px rgba(10,36,99,.06), 0 6px 18px rgba(10,36,99,.08), inset 0 1px 0 rgba(255,255,255,.95);
+  transition: box-shadow .18s, transform .18s; padding-left: 6px; }
+[data-testid="stMain"] [data-baseweb="select"] > div:hover {
+  box-shadow: 0 0 0 3px rgba(10,36,99,.07), 0 8px 22px rgba(10,36,99,.14), inset 0 1px 0 rgba(255,255,255,.95); transform: translateY(-1px); }
+[data-testid="stMain"] [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 3px rgba(123,30,58,.16), 0 8px 22px rgba(10,36,99,.14) !important; }
+[data-testid="stMain"] [data-baseweb="select"] div[value], [data-testid="stMain"] [data-baseweb="select"] span { color: #0a2463 !important; font-weight: 600; font-size: 13px; }
+[data-testid="stMain"] [data-baseweb="select"] svg { fill: #7b1e3a !important; }
+[data-baseweb="popover"] [data-baseweb="menu"], [data-baseweb="popover"] ul {
+  background: rgba(255,255,255,.82) !important; -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%);
+  border: 1px solid rgba(255,255,255,.9) !important; border-radius: 14px !important; box-shadow: 0 14px 40px rgba(10,36,99,.18) !important; }
+[data-baseweb="popover"] li[aria-selected="true"] { background: rgba(123,30,58,.10) !important; }
+[data-baseweb="popover"] li:hover { background: rgba(10,36,99,.06) !important; }
 /* Sub-tabs: wine, so they read apart from the navy option switches */
 [class*="st-key-subtab_"] div[role="radiogroup"] { background: #f6eef1; border: 1px solid #ead7de; padding: 4px; margin-bottom: 4px; }
 [class*="st-key-subtab_"] div[role="radiogroup"] label { padding: 5px 16px !important; }
