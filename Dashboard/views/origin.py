@@ -16,22 +16,23 @@ def render():
     c.page_title(f"Origin Study · {M['where']}")
     tab = c.subtabs(['Fit', 'Seasonality'], "os_tab")
     origins = c.study_origins(mk)
-    o = st.radio("Origin", origins, horizontal=True, key=f"os_origin_{mk}", label_visibility="collapsed")
+    a0, a1, a2, _ = st.columns([1.1, 1.3, 0.8, 3])
+    o = a0.selectbox("Origin", origins, key=f"os_origin_{mk}", label_visibility="collapsed")
     b = c.best_fit(o, mk)
     srcs = c.sources_for(o, mk)
     if not srcs:
         st.info(f"No flow data from {o} to {M['dest']}.")
         return
-    a1, a2, _ = st.columns([2.6, 2.2, 2])
-    src = a1.radio("Flow source", ["Auto"] + srcs, horizontal=True, key=f"os_src_{mk}_{o}", label_visibility="collapsed")
+    src = a1.selectbox("Flow source", ["Auto"] + srcs, key=f"os_src_{mk}_{o}", label_visibility="collapsed",
+                       format_func=lambda x: f"Auto ({b['source']})" if x == "Auto" and b else x)
     src = b.get("source", srcs[0]) if src == "Auto" else src
     lc = c.lag_corr(o, src, mk)
     ok = lc[(lc["lag"] <= c.AUTO_MAX_LAG) & (lc["n"] >= 3)].dropna(subset=["r"])
     dflt = int(ok.loc[ok["r"].idxmax(), "lag"]) if not ok.empty else 1
     if b.get("source") == src:
         dflt = b["lag"]
-    lag = a2.radio("Lead (months)", list(range(0, c.MAX_LAG + 1)), index=dflt, horizontal=True, key=f"os_lag_{mk}_{o}_{src}",
-                  format_func=lambda k: f"{k}m lead", label_visibility="collapsed")
+    lag = a2.selectbox("Lead", list(range(0, c.MAX_LAG + 1)), index=dflt, key=f"os_lag_{mk}_{o}_{src}",
+                       format_func=lambda k: f"{k}m lead", label_visibility="collapsed")
 
     fpm = c.fp_monthly(mk)[o]
     full = c.last_full_month()
