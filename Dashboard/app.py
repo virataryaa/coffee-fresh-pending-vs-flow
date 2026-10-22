@@ -35,7 +35,8 @@ with st.sidebar:
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Section</div>", unsafe_allow_html=True)
     section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k))
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Market</div>", unsafe_allow_html=True)
-    st.radio("Market", list(core.MARKETS), horizontal=True, key="market", label_visibility="collapsed")
+    st.radio("Market", list(core.MARKETS), horizontal=True, key="market", label_visibility="collapsed",
+             format_func=lambda k: {"Combined": "BE + US"}.get(k, k))
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Unit</div>", unsafe_allow_html=True)
     st.radio("Unit", ["Bags", "Lots"], horizontal=True, key="unit", label_visibility="collapsed")
     m = core.manifest()

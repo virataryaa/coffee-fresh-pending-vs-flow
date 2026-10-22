@@ -108,6 +108,11 @@ def build_flows() -> pd.DataFrame:
         c = cf[cf["Destination"] == cecafe_name].assign(Source="Cecafe " + cf["Type"])
         for part in (ex, im, c[["Month", "Origin", "Source", "Bags"]]):
             out.append(part.assign(Market=mk))
+    # Combined market: Belgium + US flows summed per origin, source and month
+    both = pd.concat(out, ignore_index=True)
+    both["Source"] = both["Source"].replace({"Belgian imports": "BE + US imports", "US imports": "BE + US imports"})
+    comb = both.groupby(["Month", "Origin", "Source"], as_index=False)["Bags"].sum()
+    out.append(comb.assign(Market="Combined"))
     tot = cf[cf["Destination"] == "Total"]
     out.append(tot.assign(Source="Cecafe " + tot["Type"] + " (all destinations)", Market="All")[["Month", "Origin", "Source", "Bags", "Market"]])
     return pd.concat(out, ignore_index=True)[["Market", "Month", "Origin", "Source", "Bags"]]

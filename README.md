@@ -2,7 +2,7 @@
 
 Does the Arabica coffee newly presented for ICE grading ("fresh pending") follow the green coffee shipped from each origin, and does that pipeline move the KC 1/2 spread?
 
-Two markets (sidebar switch): **Belgium** (Antwerp grading vs flows to Belgium) and **US** (Houston, Miami, New Orleans, New York, Virginia vs flows to the US). The US is a consumer market, so only a few % of its imports get graded and fits are weaker.
+Three markets (sidebar switch): **Belgium** (Antwerp grading vs flows to Belgium), **US** (Houston, Miami, New Orleans, New York, Virginia vs flows to the US) and **BE + US** (both, flows summed). The US is a consumer market, so only a few % of its imports get graded and fits are weaker.
 
 ## Folders
 

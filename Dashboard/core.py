@@ -18,6 +18,8 @@ YEAR_PAL = ["#c9d2e6", "#9fb0d4", "#6b7fb8", "#3a5596", NAVY, "#0a2463"]
 MARKETS = {
     "Belgium": dict(ports=["Antwerp"], where="Antwerp", dest="Belgium", imports="Belgian imports"),
     "US": dict(ports=["Houston", "Miami", "New Orleans", "New York", "Virginia"], where="US ports", dest="the US", imports="US imports"),
+    "Combined": dict(ports=["Antwerp", "Houston", "Miami", "New Orleans", "New York", "Virginia"], where="Antwerp + US ports",
+                     dest="Belgium + US", imports="BE + US imports"),
 }
 STUDY_START = pd.Timestamp("2023-08-01")   # report series starts 18-Jul-2023, so July has no first difference
 LOT_BAGS = 37500 / 132.276             # ICE KC lot = 37,500 lb = 283.5 bags of 60 kg
