@@ -26,12 +26,14 @@ if _data_state().get("ver") != _ver:
 
 PAGES = {"Overview": overview.render, "Origin Study": origin.render, "Brazil": brazil.render,
          "Nowcast": nowcast.render, "Spreads": spreads.render, "Data": data.render}
+LABELS = {"Overview": "Grading Overview", "Origin Study": "Origin Deep Dive", "Brazil": "Brazil Focus",
+          "Nowcast": "Flow Nowcast", "Spreads": "Spread Impact", "Data": "Data & Caveats"}
 
 with st.sidebar:
     st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>KC grading vs origin flows</div>",
                 unsafe_allow_html=True)
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Section</div>", unsafe_allow_html=True)
-    section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed")
+    section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k))
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Market</div>", unsafe_allow_html=True)
     st.radio("Market", list(core.MARKETS), horizontal=True, key="market", label_visibility="collapsed")
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Unit</div>", unsafe_allow_html=True)
