@@ -84,18 +84,6 @@ def render():
                 xaxis=dict(color=c.AXIS, showgrid=False, dtick=1, title="months"), yaxis=dict(range=[-1, 1.1], gridcolor=c.GRID, color=c.AXIS, tickfont=dict(size=10)))
         c.show(fig, "os_lag")
     with r, st.container(border=True):
-        c.head("Fresh pending by month", "One line per year")
-        fig = go.Figure()
-        yrs = sorted(fpm.index.year.unique())
-        pal = c.YEAR_PAL[-len(yrs):] if len(yrs) <= len(c.YEAR_PAL) else c.PAL
-        for i, y in enumerate(yrs):
-            s = fpm[fpm.index.year == y]
-            fig.add_scatter(x=s.index.month, y=s * u, name=str(y), mode="lines+markers",
-                            line=dict(color=pal[i % len(pal)], width=2.6 if i == len(yrs) - 1 else 1.6), marker=dict(size=4))
-        c.style(fig, height=330, xaxis=dict(color=c.AXIS, showgrid=False, tickvals=list(range(1, 13)), ticktext=MONTHS))
-        c.show(fig, "os_seas")
-
-    with st.container(border=True):
         d = c.port_daily(mk)
         d = d[d["Origin"] == o].groupby("Date")[["Pending", "Passed", "Failed"]].sum()
         wk = d[["Passed", "Failed"]].resample("W-FRI").sum()
@@ -105,5 +93,20 @@ def render():
         fig.add_bar(x=wk.index, y=wk["Passed"] * u, name="Passed", marker_color=c.GREEN, marker_line_width=0)
         fig.add_bar(x=wk.index, y=-wk["Failed"] * u, name="Failed", marker_color=c.RED, marker_line_width=0)
         fig.add_scatter(x=d.index, y=d["Pending"] * u, name="Pending", mode="lines", line=dict(color=c.NAVY, width=1.6))
-        c.style(fig, height=300, barmode="relative", bargap=0.1)
+        c.style(fig, height=330, barmode="relative", bargap=0.1)
         c.show(fig, "os_outcome")
+
+    l, r = st.columns(2, gap="medium")
+    for col, (title, ser, key) in zip((l, r), [("Fresh pending by month", fpm, "os_seas"),
+                                               (f"{src} by month", x[x.index >= pd.Timestamp("2021-01-01")], "os_seas_flow")]):
+        with col, st.container(border=True):
+            c.head(title, "One line per year")
+            fig = go.Figure()
+            yrs = sorted(ser.index.year.unique())
+            pal = c.YEAR_PAL[-len(yrs):] if len(yrs) <= len(c.YEAR_PAL) else c.PAL
+            for i, y in enumerate(yrs):
+                sy = ser[ser.index.year == y]
+                fig.add_scatter(x=sy.index.month, y=sy * u, name=str(y), mode="lines+markers",
+                                line=dict(color=pal[i % len(pal)], width=2.6 if i == len(yrs) - 1 else 1.6), marker=dict(size=4))
+            c.style(fig, height=330, xaxis=dict(color=c.AXIS, showgrid=False, tickvals=list(range(1, 13)), ticktext=MONTHS))
+            c.show(fig, key)
