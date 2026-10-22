@@ -74,6 +74,9 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .chart-head { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin-bottom: 3px; letter-spacing: -.005em; }
 .card-desc { color: #2b3452; font-size: .9rem; margin-top: 0; margin-bottom: 8px; line-height: 1.45; }
 .card-desc b { color: #0a2463; }
+.grp { margin: 18px 0 4px; padding: 0 0 6px 12px; border-left: 4px solid #b08d57; }
+.grp span { display: block; color: #0a2463; font-size: 1.08rem; font-weight: 700; letter-spacing: .01em; }
+.grp em { display: block; color: #3a4466; font-size: .86rem; font-style: normal; margin-top: 1px; }
 .note { color: #3a4466; font-size: 13px; line-height: 1.5; }
 [data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {
     background: #ffffff; border: 1px solid #e3e7f0 !important; border-radius: 14px; box-shadow: 0 1px 3px rgba(10,36,99,0.06); }

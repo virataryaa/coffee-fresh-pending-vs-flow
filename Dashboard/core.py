@@ -247,6 +247,11 @@ def subtabs(options, key):
     return st.radio("View", options, horizontal=True, key=key, label_visibility="collapsed")
 
 
+def group(title, sub=""):
+    """Section header that groups the cards below it."""
+    st.markdown(f"<div class='grp'><span>{title}</span>" + (f"<em>{sub}</em>" if sub else "") + "</div>", unsafe_allow_html=True)
+
+
 def page_title(title, sub=""):
     st.markdown(f"<div class='page-title'>{title}</div>" + (f"<div class='card-desc'>{sub}</div>" if sub else ""), unsafe_allow_html=True)
 

@@ -1,17 +1,7 @@
-"""Data: freshness of each source, report-day coverage, and the caveats that matter when reading the study."""
+"""Data: how fresh each source is. Caveats live in README.md."""
 import streamlit as st
 
 import core as c
-
-NOTES = [
-    ("Fresh pending", "Change in pending + passed + failed, per day."),
-    ("Missing days", "A missing ICE file loses that day's passed + failed."),
-    ("HS 0901.11", "TDM mixes Arabica and Robusta. Use Cecafe for Brazil."),
-    ("Imports", "Booked at customs. EU transit coffee can land in another country."),
-    ("US", "Consumer market: only a few % of flow gets graded."),
-    ("Nicaragua", "TDM exports stop Dec-2023."),
-    ("Sample", "About 38 months, seasonal. Leads capped at 0-3m."),
-]
 
 
 def render():
@@ -23,7 +13,3 @@ def render():
     with st.container(border=True):
         c.head("Sources")
         c.table(["From", "Latest", "What"], rows, corner="Source")
-
-    with st.container(border=True):
-        c.head("Caveats")
-        c.table(["Note"], [(k, [(v, "l")], "") for k, v in NOTES], corner="Topic", cls="wrap")

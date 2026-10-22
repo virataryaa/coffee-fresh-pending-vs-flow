@@ -34,6 +34,19 @@ We read local copies rather than calling LSEG: the Daily Miner already pulls the
 - **Nowcast** = conversion x lagged flow, for fits with r >= 0.30.
 - **Spreads**: spread = a + b ln(stock), with certs alone and with certs + pending. Fresh pending vs the roll-adjusted spread change 0-3 months later. Pipeline-implied spread adds the nowcast to today's pool.
 
+## Caveats
+
+| Topic | Note |
+|---|---|
+| Fresh pending | Change in pending + passed + failed, per report day (same as Daily Miner `kc_fresh_frame`). |
+| Missing days | A missing ICE daily file loses that day's passed + failed, so the month is understated. |
+| Certs | Daily from LSEG `kc_certs.parquet`; the ICE report only carries certs on some days. Kenya / Virginia have no LSEG RIC and keep the report value. |
+| HS 0901.11 | TDM mixes Arabica and Robusta (Uganda, India, Tanzania, Brazil TDM). Use Cecafe for Brazil. |
+| Imports | Booked at customs; EU transit coffee (via Rotterdam / Hamburg) can land in another country's imports. |
+| US | Consumer market: only a few % of flow gets graded, so fits are weaker. |
+| Nicaragua | TDM exports stop Dec-2023; only Belgian / US imports usable. |
+| Sample | About 38 complete months since Aug-2023, both series seasonal. Auto-fit leads capped at 0-3 months. |
+
 ## Dashboard sections
 
 Overview (KPIs, monthly fresh pending by origin, origin scorecard) · Origin Study (overlay, lead-lag, scatter, grading outcome, seasonality) · Brazil (Cecafe excess vs 5y normal, Belgium share, crop-year pace) · Nowcast · Spreads · Data (freshness, coverage, caveats).
