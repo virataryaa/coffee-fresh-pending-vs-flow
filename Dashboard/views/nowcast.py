@@ -73,7 +73,7 @@ def render():
         c.table(["How"] + [f"Est. {m:%b-%y}" for m in months], rows, corner="Method")
 
     with st.container(border=True):
-        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Dark band</b> middle 30% of past misses{D}<b>Light band</b> middle 60%{D}<b>Diamond</b> month to date")
+        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Dark band</b> a quarter of past months landed inside{D}<b>Light band</b> half did{D}<b>Diamond</b> month to date")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
         idx = pd.date_range(c.STUDY_START, max(months), freq="MS")
         F = pd.concat(fits, axis=1).reindex(idx)
@@ -83,12 +83,12 @@ def render():
             est[m] = tot[m]
         done = idx <= full
         res = (act[done] - est[done]).dropna()                # past misses: actual - expected
-        q = {k: (res.quantile(k) if len(res) > 5 else 0.0) for k in (.2, .35, .65, .8)}
-        lo_q, hi_q = q[.2], q[.8]
+        # centred on the line: half-width = how far a quarter / half of past months missed by (either side)
+        w25, w50 = (res.abs().quantile(.25), res.abs().quantile(.5)) if len(res) > 5 else (0.0, 0.0)
         fig = go.Figure()
-        for (lo, hi), shade, name in [((.2, .8), "rgba(42,140,140,.10)", "Range 60%"), ((.35, .65), "rgba(42,140,140,.30)", "Range 30%")]:
-            fig.add_scatter(x=idx, y=(est + q[hi]).clip(lower=0) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
-            fig.add_scatter(x=idx, y=(est + q[lo]).clip(lower=0) * u, mode="lines", line=dict(width=0), fill="tonexty",
+        for w, shade, name in [(w50, "rgba(42,140,140,.12)", f"±{c.kfmt(w50 * u)}"), (w25, "rgba(42,140,140,.32)", f"±{c.kfmt(w25 * u)}")]:
+            fig.add_scatter(x=idx, y=(est + w) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
+            fig.add_scatter(x=idx, y=(est - w).clip(lower=0) * u, mode="lines", line=dict(width=0), fill="tonexty",
                             fillcolor=shade, name=name, hoverinfo="skip")
         fig.add_bar(x=idx[done], y=act[done] * u, name="Actual", marker_color=c.NAVY, marker_line_width=0)
         fig.add_bar(x=idx[~done], y=est[~done] * u, name="Estimate", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
@@ -102,4 +102,4 @@ def render():
         ok = a.notna() & e.notna()
         if ok.sum() > 3:
             st.markdown(f"<div class='note'>r {np.corrcoef(a[ok], e[ok])[0, 1]:.2f} · avg error {c.kfmt((a[ok] - e[ok]).abs().mean() * u)} {un}/month "
-                        f"· avg actual {c.kfmt(a[ok].mean() * u)} · dark band = expected {c.kfmt(q[.35] * u)} to +{c.kfmt(q[.65] * u)} · light band {c.kfmt(lo_q * u)} to +{c.kfmt(hi_q * u)}</div>", unsafe_allow_html=True)
+                        f"· avg actual {c.kfmt(a[ok].mean() * u)} · dark band ±{c.kfmt(w25 * u)} · light band ±{c.kfmt(w50 * u)}</div>", unsafe_allow_html=True)
