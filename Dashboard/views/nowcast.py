@@ -73,7 +73,10 @@ def render():
         c.table(["How"] + [f"Est. {m:%b-%y}" for m in months], rows, corner="Method")
 
     with st.container(border=True):
-        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Dark band</b> a quarter of past months landed inside{D}<b>Light band</b> half did{D}<b>Diamond</b> month to date")
+        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Diamond</b> so far this period"
+                              f"{D}<b>Dark band</b> 1 in 4 past periods landed inside it{D}<b>Light band</b> 1 in 2 did")
+        view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], horizontal=True, key="nc_view",
+                        help="Grouping smooths out coffee that is graded a few weeks earlier or later than expected")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
         idx = pd.date_range(c.STUDY_START, max(months), freq="MS")
         F = pd.concat(fits, axis=1).reindex(idx)
@@ -81,25 +84,46 @@ def render():
         est = F.sum(axis=1, min_count=1)
         for m in months:                                     # months ahead: the table's estimates (incl. filled flow)
             est[m] = tot[m]
-        done = idx <= full
-        res = (act[done] - est[done]).dropna()                # past misses: actual - expected
-        # centred on the line: half-width = how far a quarter / half of past months missed by (either side)
+        done = pd.Series(idx <= full, index=idx)
+        blend = act.where(done, est)                          # actual where the month is over, estimate after
+        so_far = act.where(done, 0.0)                         # actual graded so far (current month = month to date)
+        so_far[cur] = act[cur]
+        if view == "Month":
+            A, E, B, SF, ok_done = act, est, blend, so_far, done
+            fmt, dt, per = "%b-%y", "M2", "month"
+        elif view == "Rolling 3 months":
+            A, E, B, SF = (x.rolling(3).sum() for x in (act, est, blend, so_far))
+            ok_done = done.rolling(3).min().fillna(0).astype(bool)
+            fmt, dt, per = "%b-%y", "M2", "3 months"
+        else:
+            q = idx.to_period("Q")
+            full_q = pd.Series(1, index=idx).groupby(q).count() == 3
+            g = lambda x: x.groupby(q).sum(min_count=1)       # noqa: E731
+            A, E, B, SF = g(act), g(est), g(blend), g(so_far)
+            ok_done = done.groupby(q).all()
+            keep = full_q | ok_done                           # drop a trailing quarter the estimates only partly cover
+            A, E, B, SF, ok_done = (x[keep] for x in (A, E, B, SF, ok_done))
+            A.index = E.index = B.index = SF.index = ok_done.index = A.index.to_timestamp()
+            fmt, dt, per = "Q%q-%y", "M3", "quarter"
+        x = E.index
+        res = (A[ok_done] - E[ok_done]).dropna()             # past misses: actual - expected
         w25, w50 = (res.abs().quantile(.25), res.abs().quantile(.5)) if len(res) > 5 else (0.0, 0.0)
         fig = go.Figure()
-        for w, shade, name in [(w50, "rgba(42,140,140,.12)", f"±{c.kfmt(w50 * u)}"), (w25, "rgba(42,140,140,.32)", f"±{c.kfmt(w25 * u)}")]:
-            fig.add_scatter(x=idx, y=(est + w) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
-            fig.add_scatter(x=idx, y=(est - w).clip(lower=0) * u, mode="lines", line=dict(width=0), fill="tonexty",
+        for w, shade, name in [(w50, "rgba(42,140,140,.07)", f"±{c.kfmt(w50 * u)}"), (w25, "rgba(42,140,140,.17)", f"±{c.kfmt(w25 * u)}")]:
+            fig.add_scatter(x=x, y=(E + w) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
+            fig.add_scatter(x=x, y=(E - w).clip(lower=0) * u, mode="lines", line=dict(width=0), fill="tonexty",
                             fillcolor=shade, name=name, hoverinfo="skip")
-        fig.add_bar(x=idx[done], y=act[done] * u, name="Actual", marker_color=c.NAVY, marker_line_width=0)
-        fig.add_bar(x=idx[~done], y=est[~done] * u, name="Estimate", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
-                                                                                 pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
-        if (~done).any():
-            fig.add_scatter(x=[cur], y=[act[cur] * u], name="MTD", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
-        fig.add_scatter(x=idx, y=est * u, name="Expected from flow", mode="lines", line=dict(color=c.TEAL, width=2))
-        c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
+        fig.add_bar(x=x[ok_done.values], y=A[ok_done] * u, name="Actual", marker_color=c.NAVY, marker_line_width=0)
+        fig.add_bar(x=x[~ok_done.values], y=B[~ok_done] * u, name="Estimate", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
+                                                                                          pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
+        cur_x = [p_ for p_ in x[~ok_done.values] if SF.get(p_, 0) > 0][:1]
+        if cur_x:
+            fig.add_scatter(x=cur_x, y=[SF[cur_x[0]] * u], name="So far", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
+        fig.add_scatter(x=x, y=E * u, name="Expected from flow", mode="lines", line=dict(color=c.TEAL, width=2))
+        c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick=dt, tickformat=fmt))
         c.show(fig, "nc_hist")
-        a, e = act[done], est[done]
+        a, e = A[ok_done], E[ok_done]
         ok = a.notna() & e.notna()
         if ok.sum() > 3:
-            st.markdown(f"<div class='note'>r {np.corrcoef(a[ok], e[ok])[0, 1]:.2f} · avg error {c.kfmt((a[ok] - e[ok]).abs().mean() * u)} {un}/month "
+            st.markdown(f"<div class='note'>r {np.corrcoef(a[ok], e[ok])[0, 1]:.2f} · avg miss {c.kfmt((a[ok] - e[ok]).abs().mean() * u)} {un} per {per} "
                         f"· avg actual {c.kfmt(a[ok].mean() * u)} · dark band ±{c.kfmt(w25 * u)} · light band ±{c.kfmt(w50 * u)}</div>", unsafe_allow_html=True)
