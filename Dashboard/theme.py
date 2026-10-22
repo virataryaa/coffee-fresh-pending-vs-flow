@@ -70,7 +70,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .st-key-section div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p { font-size: 13px !important; }
 
 /* Page text and cards */
-.page-title { color: #0a2463 !important; font-weight: 700; font-size: 1.15rem; margin: 0 0 2px 0; letter-spacing: -.01em; }
+.page-title { color: #0a2463 !important; font-weight: 700; font-size: 1.15rem; margin: 0 0 14px 0; letter-spacing: -.01em; }
 .chart-head { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin-bottom: 3px; letter-spacing: -.005em; }
 .card-desc { color: #2b3452; font-size: .9rem; margin-top: 0; margin-bottom: 8px; line-height: 1.45; }
 .card-desc b { color: #0a2463; }
