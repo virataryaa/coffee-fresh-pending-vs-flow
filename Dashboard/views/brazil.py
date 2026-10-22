@@ -16,6 +16,15 @@ def _same_month(s: pd.Series, m: pd.Timestamp, years: int) -> pd.Series:
     return s.reindex([m - pd.DateOffset(years=k) for k in range(1, years + 1)]).dropna()
 
 
+def _normal_picker(col, key):
+    """Normal-years switch; the choice is kept across sub-tabs."""
+    opts = [3, 5, 10]
+    yrs = col.radio("Normal = same-month average over", opts, index=opts.index(st.session_state.get("br_norm_v", 5)), horizontal=True,
+                    key=key, format_func=lambda n: f"{n} years")
+    st.session_state["br_norm_v"] = yrs
+    return yrs
+
+
 def render():
     mk = c.market()
     M = c.MARKETS[mk]
@@ -27,13 +36,19 @@ def render():
     if bel.empty:
         st.info("No Cecafe data.")
         return
-    share = (bel / allb).dropna()
     fp = c.fp_monthly(mk).get("Brazil", pd.Series(dtype=float))
-    yrs = st.radio("Normal = average of the same month over the last", [3, 5, 10], index=1, horizontal=True, key="br_norm",
-                   format_func=lambda n: f"{n} years")
-    c.group(f"Brazil flows to {dest}", "How much Brazil ships there vs normal")
+    tab = c.subtabs(["Flows vs normal", "Excess → fresh pending", "Share"], "br_tab")
+    if tab == "Flows vs normal":
+        flows_vs_normal(bel, fp, M, u)
+    elif tab.startswith("Excess"):
+        excess_study(bel, fp, M, u)
+    else:
+        share_view((bel / allb).dropna(), dest)
 
-    # ── 1. history: each month vs its own same-month normal ──────────────────────────────────────────────
+
+def flows_vs_normal(bel, fp, M, u):
+    dest = M["dest"]
+    yrs = _normal_picker(st, "br_norm_a")
     with st.container(border=True):
         c.head("Actual vs normal", f"<b>Bars</b> exports to {dest}, green above / red below normal{D}<b>Navy</b> same-month {yrs}y normal"
                                    f"{D}<b>Orange</b> Brazil fresh pending a month later")
@@ -50,7 +65,6 @@ def render():
         c.style(fig, height=350, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M3", tickformat="%b-%y"))
         c.show(fig, "br_actual")
 
-    # ── 2. this crop year by month vs the same-month normal and range ────────────────────────────────────
     cy = lambda m: m.year if m.month >= CY_START else m.year - 1          # noqa: E731
     cur_cy = cy(bel.index.max())
     l, r = st.columns([1.6, 1], gap="medium")
@@ -73,7 +87,7 @@ def render():
         c.style(fig, height=330, xaxis=dict(color=c.AXIS, showgrid=False, categoryorder="array", categoryarray=CY_MONTHS))
         c.show(fig, "br_cy")
     with r, st.container(border=True):
-        c.head("vs normal, last 6 months", f"Same-month {yrs}y average{D}Lot = 283.5 bags")
+        c.head("Last 6 months vs normal", f"Same-month {yrs}y average{D}Lot = 283.5 bags")
         rows = []
         for m in bel.index[-6:][::-1]:
             n = _same_month(bel, m, yrs).mean()
@@ -82,29 +96,29 @@ def render():
             rows.append((c.mlabel(m), [c.kfmt(bel[m] * u), c.kfmt(n * u), (c.kfmt(ex * u), cls), (f"{ex / c.LOT_BAGS:+,.0f}", cls)], ""))
         c.table(["Actual", "Normal", "Diff", "Lots"], rows, corner="Month")
 
+
+def share_view(share, dest):
     with st.container(border=True):
         c.head(f"Share of Brazil Arabica going to {dest}", f"<b>Light</b> monthly{D}<b>Dark</b> 12-month average")
         s = share[share.index >= pd.Timestamp("2016-07-01")]
         fig = go.Figure()
         fig.add_scatter(x=s.index, y=s * 100, name="Monthly", mode="lines", line=dict(color="#b9c3de", width=1.4))
         fig.add_scatter(x=s.index, y=s.rolling(12).mean() * 100, name="12m avg", mode="lines", line=dict(color=c.NAVY, width=2.4))
-        c.style(fig, height=290, fmt=".1f", yaxis=dict(ticksuffix="%", gridcolor=c.GRID, color=c.AXIS, tickfont=dict(size=10)))
+        c.style(fig, height=360, fmt=".1f", yaxis=dict(ticksuffix="%", gridcolor=c.GRID, color=c.AXIS, tickfont=dict(size=10)))
         c.show(fig, "br_share")
-
-    c.group("Excess flow → fresh pending", f"Does shipping more than normal show up at {M['where']} grading?")
-    excess_study(bel, fp, yrs, M, u)
 
 
 def _normal_series(s: pd.Series, years: int) -> pd.Series:
     return pd.Series({m: _same_month(s, m, years).mean() for m in s.index})
 
 
-def excess_study(bel, fp, yrs, M, u):
+def excess_study(bel, fp, M, u):
     """Does Brazil shipping MORE than normal to the destination show up as fresh pending at its ports?"""
     full = c.last_full_month()
     fp = fp[fp.index <= full]
+    a0, a1, a2 = st.columns([1.3, 1.3, 1.2])
+    yrs = _normal_picker(a0, "br_norm_b")
     ex = bel - _normal_series(bel, yrs)
-    a1, a2, _ = st.columns([2.2, 2, 2])
     win = a1.radio("Excess measured over", [1, 3], horizontal=True, key="bx_win", format_func=lambda n: "1 month" if n == 1 else "3 months (running)")
     lag = a2.radio("Fresh pending, months later", [0, 1, 2, 3], index=1, horizontal=True, key="bx_lag")
     exw = ex.rolling(win).sum() if win > 1 else ex
@@ -153,6 +167,6 @@ def excess_study(bel, fp, yrs, M, u):
         fig = go.Figure()
         fig.add_bar(x=list(range(4)), y=rows_ex, name="Excess", marker_color=c.NAVY, text=[f"{v:.2f}" for v in rows_ex], textposition="outside")
         fig.add_bar(x=list(range(4)), y=rows_raw, name="Raw flow", marker_color="#b9c3de", text=[f"{v:.2f}" for v in rows_raw], textposition="outside")
-        c.style(fig, height=320, fmt=".2f", hovermode="closest", barmode="group",
+        c.style(fig, height=280, fmt=".2f", hovermode="closest", barmode="group",
                 xaxis=dict(color=c.AXIS, showgrid=False, dtick=1, title="months later"), yaxis=dict(range=[-0.2, 1.05], gridcolor=c.GRID, color=c.AXIS))
         c.show(fig, "bx_lag_chart")
