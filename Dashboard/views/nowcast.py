@@ -25,8 +25,7 @@ def render():
     M = c.MARKETS[mk]
     u, un = c.unit_factor(), c.unit_name()
     c.page_title(f"Nowcast · {M['where']}", "Fresh pending expected from coffee already shipped")
-    method = c.fill_picker("nc_fill")
-    nc = c.nowcast_table(mk, method)
+    nc = c.nowcast_table(mk)
     if nc.empty:
         st.info("No origin has a usable fit.")
         return
@@ -38,7 +37,7 @@ def render():
     share = c.certs_share(mk)
 
     with st.container(border=True):
-        fill_txt = "" if method == "Off" else f"{D}<b>~ tinted</b> uses filled flow ({c.FILL_DESC[method]})"
+        fill_txt = f"{D}<b>~ tinted</b> uses filled flow (average of 3 methods, compared below)"
         c.head("By origin", f"Sorted by share of certs{D}Estimate = flow from 'lead' months earlier x conversion{fill_txt}")
         fitted = {r["Origin"]: r for _, r in nc.iterrows()}
         rows = []
@@ -61,6 +60,17 @@ def render():
                      + [c.kfmt(nc["MTD"].sum() * u)], "tot"))
         c.table(["Certs share", "Source", "Lead", "r", "Conversion"] + [f"Est. {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
         st.markdown(f"<div class='note'>Weak fit = r below {c.MIN_R:.1f}, not used for estimates.</div>", unsafe_allow_html=True)
+
+    with st.container(border=True):
+        c.head("Fill methods compared", f"Total estimate under each way of filling unpublished flow months{D}<b>Average</b> is what the tables use")
+        rows = []
+        for meth in c.FILL_METHODS + ["Average", "Off"]:
+            t = nc if meth == c.DEFAULT_FILL else c.nowcast_table(mk, meth)
+            vals = [t[m].sum(min_count=1) for m in months]
+            label = "No fill (published flow only)" if meth == "Off" else meth
+            rows.append((label, [(c.FILL_DESC[meth], "l mut")] + [c.kfmt(v * u) if pd.notna(v) else "" for v in vals],
+                         "tot" if meth == "Average" else ""))
+        c.table(["How"] + [f"Est. {m:%b-%y}" for m in months], rows, corner="Method")
 
     with st.container(border=True):
         c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> estimate ahead{D}<b>Band</b> middle 60% of past misses{D}<b>Diamond</b> month to date")

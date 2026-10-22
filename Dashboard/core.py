@@ -184,21 +184,11 @@ def fitted(origin: str, source: str, lag: int, mk: str) -> pd.Series:
     return flow(origin, source, mk).shift(lag, freq="MS") * float(conv.iloc[0])
 
 
-FILL_METHODS = ["Off", "Seasonal", "Last month", "3m average"]
-FILL_DESC = {"Off": "leave blank", "Seasonal": "same month last year x this year's pace vs last year (last 3 months)",
-             "Last month": "repeat the latest month", "3m average": "average of the latest 3 months"}
-
-
-def fill_method() -> str:
-    """Fill choice shared by every page (kept outside widget state so it survives page switches)."""
-    return st.session_state.get("fill_m", "Seasonal")
-
-
-def fill_picker(key: str) -> str:
-    m = st.radio("Missing flow months", FILL_METHODS, index=FILL_METHODS.index(fill_method()), horizontal=True, key=key,
-                 help="How to fill flow months that are not published yet, so every month gets an estimate")
-    st.session_state["fill_m"] = m
-    return m
+FILL_METHODS = ["Seasonal", "Last month", "3m average"]
+FILL_DESC = {"Off": "leave blank", "Seasonal": "same month last year x this year's pace vs last year",
+             "Last month": "repeat the latest month", "3m average": "average of the latest 3 months",
+             "Average": "average of Seasonal, Last month and 3m average"}
+DEFAULT_FILL = "Average"
 
 
 def fill_flow(x: pd.Series, until: pd.Timestamp, method: str):
@@ -208,15 +198,14 @@ def fill_flow(x: pd.Series, until: pd.Timestamp, method: str):
         return x, set()
     new = pd.date_range(x.index.max() + pd.DateOffset(months=1), until, freq="MS")
     last3 = x.iloc[-3:]
-    if method == "Last month":
-        vals = [float(x.iloc[-1])] * len(new)
-    elif method == "3m average":
-        vals = [float(last3.mean())] * len(new)
-    else:                                    # Seasonal: last year's same month x this year's recent pace
-        prev = x.reindex(last3.index - pd.DateOffset(years=1))
-        pace = float(last3.sum() / prev.sum()) if prev.notna().all() and prev.sum() > 0 else 1.0
-        pace = min(max(pace, 0.5), 2.0)
-        vals = [float(x.get(m - pd.DateOffset(years=1), last3.mean())) * pace for m in new]
+    prev = x.reindex(last3.index - pd.DateOffset(years=1))
+    pace = float(last3.sum() / prev.sum()) if prev.notna().all() and prev.sum() > 0 else 1.0
+    pace = min(max(pace, 0.5), 2.0)
+    by = {"Last month": [float(x.iloc[-1])] * len(new),
+          "3m average": [float(last3.mean())] * len(new),
+          # Seasonal: last year's same month x this year's recent pace
+          "Seasonal": [float(x.get(m - pd.DateOffset(years=1), last3.mean())) * pace for m in new]}
+    vals = [sum(v) / len(v) for v in zip(*by.values())] if method == "Average" else by[method]
     return pd.concat([x, pd.Series(vals, index=new)]), set(new)
 
 
@@ -229,7 +218,7 @@ def certs_share(mk: str) -> pd.Series:
 
 
 @st.cache_data(ttl=600)
-def nowcast_table(mk: str, method: str = "Off") -> pd.DataFrame:
+def nowcast_table(mk: str, method: str = DEFAULT_FILL) -> pd.DataFrame:
     """Per origin: the auto fit and its fresh pending estimate for the current and next months. Months whose lagged flow is
     not published are filled with `method` (see fill_flow); `filled` lists those months."""
     cur = grading()["Date"].max().to_period("M").to_timestamp()

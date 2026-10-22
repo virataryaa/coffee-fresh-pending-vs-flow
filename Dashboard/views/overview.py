@@ -32,14 +32,10 @@ def render():
 
     with st.container(border=True):
         c.head("Origin scorecard", "Sorted by share of certs &nbsp;·&nbsp; <b>Conversion</b> share of flow that reaches grading "
-                                   "&nbsp;·&nbsp; <b>vs avg</b> latest flow vs the same month in past years &nbsp;·&nbsp; <b>~</b> uses filled flow")
-        a1, a2 = st.columns([1, 1.3])
-        with a1:
-            yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
-                           format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
-        with a2:
-            method = c.fill_picker("ov_fill")
-        nc = c.nowcast_table(mk, method)
+                                   "&nbsp;·&nbsp; <b>vs avg</b> latest flow vs the same month in past years &nbsp;·&nbsp; <b>~</b> uses filled flow (average of 3 methods, see Nowcast)")
+        yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
+                       format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
+        nc = c.nowcast_table(mk)
         share = fpm[fpm.index <= full].sum()
         share = share / share.sum()
         cshare = c.certs_share(mk)
