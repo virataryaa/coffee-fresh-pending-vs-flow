@@ -1,0 +1,15 @@
+{
+  "built": "2026-10-22 13:29",
+  "grading_last": "2026-10-21",
+  "grading_first": "2023-07-18",
+  "grading_days": 695,
+  "flows_last": {
+    "Belgian imports": "2026-08",
+    "Cecafe Arabica": "2026-09",
+    "Cecafe Arabica (all destinations)": "2026-09",
+    "Cecafe Robusta": "2026-09",
+    "Cecafe Robusta (all destinations)": "2026-09",
+    "Origin exports": "2026-09"
+  },
+  "spread_last": "2026-10-21"
+}

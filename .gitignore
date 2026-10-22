@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.log
+Database/Logs/
+.streamlit/secrets.toml
+Dashboard/.streamlit/secrets.toml

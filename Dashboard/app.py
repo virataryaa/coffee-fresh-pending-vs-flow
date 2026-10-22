@@ -1,0 +1,28 @@
+import sys
+from pathlib import Path
+
+import streamlit as st
+
+st.set_page_config(page_title="Fresh Pending vs Flow", layout="wide", initial_sidebar_state="expanded")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import core  # noqa: E402
+import theme  # noqa: E402
+from views import brazil, data, nowcast, origin, overview, spreads  # noqa: E402
+
+st.markdown(theme.CSS, unsafe_allow_html=True)
+
+PAGES = {"Overview": overview.render, "Origin Study": origin.render, "Brazil": brazil.render,
+         "Nowcast": nowcast.render, "Spreads": spreads.render, "Data": data.render}
+
+with st.sidebar:
+    st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>Arabica grading at Antwerp vs coffee shipped to Belgium</div>",
+                unsafe_allow_html=True)
+    st.markdown("<div class='sb-sep'></div><div class='sb-label'>Section</div>", unsafe_allow_html=True)
+    section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed")
+    st.markdown("<div class='sb-sep'></div><div class='sb-label'>Unit</div>", unsafe_allow_html=True)
+    st.radio("Unit", ["Bags", "Lots"], horizontal=True, key="unit", label_visibility="collapsed")
+    m = core.manifest()
+    st.markdown(f"<div class='sb-sep'></div><div class='sb-foot'>ICE report {m['grading_last']}<br>Built {m['built']}</div>", unsafe_allow_html=True)
+
+PAGES[section]()
