@@ -19,8 +19,8 @@ def _same_month(s: pd.Series, m: pd.Timestamp, years: int) -> pd.Series:
 def _normal_picker(col, key):
     """Normal-years switch; the choice is kept across sub-tabs."""
     opts = [3, 5, 10]
-    yrs = col.radio("Normal = same-month average over", opts, index=opts.index(st.session_state.get("br_norm_v", 5)), horizontal=True,
-                    key=key, format_func=lambda n: f"{n} years")
+    yrs = col.radio("Normal", opts, index=opts.index(st.session_state.get("br_norm_v", 5)), horizontal=True,
+                    key=key, format_func=lambda n: f"{n}y normal", label_visibility="collapsed")
     st.session_state["br_norm_v"] = yrs
     return yrs
 
@@ -119,16 +119,14 @@ def excess_study(bel, fp, M, u):
     a0, a1, a2 = st.columns([1.3, 1.3, 1.2])
     yrs = _normal_picker(a0, "br_norm_b")
     ex = bel - _normal_series(bel, yrs)
-    win = a1.radio("Excess measured over", [1, 3], horizontal=True, key="bx_win", format_func=lambda n: "1 month" if n == 1 else "3 months (running)")
-    lag = a2.radio("Fresh pending, months later", [0, 1, 2, 3], index=1, horizontal=True, key="bx_lag")
+    win = a1.radio("Excess over", [1, 3], horizontal=True, key="bx_win", format_func=lambda n: "1m excess" if n == 1 else "3m excess",
+                   label_visibility="collapsed")
+    lag = a2.radio("Lead", [0, 1, 2, 3], index=1, horizontal=True, key="bx_lag", format_func=lambda k: f"{k}m lead",
+                   label_visibility="collapsed")
     exw = ex.rolling(win).sum() if win > 1 else ex
     xs = exw.shift(lag, freq="MS").reindex(fp.index)
     ok = xs.notna()
     r_ex = np.corrcoef(xs[ok], fp[ok])[0, 1] if ok.sum() > 5 else np.nan
-    raw = bel.rolling(win).sum().shift(lag, freq="MS").reindex(fp.index)
-    r_raw = np.corrcoef(raw[ok], fp[ok])[0, 1] if ok.sum() > 5 else np.nan
-    st.markdown(f"<div class='card-desc'>Excess = exports minus same-month {yrs}y normal{D}r excess <b>{r_ex:.2f}</b> (R² {r_ex ** 2:.2f})"
-                f"{D}r raw flow <b>{r_raw:.2f}</b>{D}{int(ok.sum())} months</div>", unsafe_allow_html=True)
 
     l, r = st.columns([2, 1.2], gap="medium")
     with l, st.container(border=True):

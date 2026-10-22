@@ -43,8 +43,6 @@ def _lnfit(x, y):
 def render():
     u, un = c.unit_factor(), c.unit_name()
     s, p = spread(), pool()
-    last = s.index.max()
-    sp_now = s["spread"].iloc[-1]
     c.page_title("Spreads · KC 1/2 vs the grading pipeline")
     tab = c.subtabs(['Spread vs stock', 'Fresh pending effect'], "sp_tab")
 
@@ -59,11 +57,10 @@ def render():
             fig.add_scatter(x=ss.index, y=ss["spread"], name="1/2 spread", yaxis="y2", mode="lines", line=dict(color=c.RED, width=1.8))
             c.style(fig, height=360, y2=dict(title="c/lb", hoverformat=".2f"), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
             c.show(fig, "sp_levels")
-            st.markdown(f"<div class='note'>Latest spread {sp_now:.2f} c/lb ({s['active_label'].ffill().iloc[-1]}, {last:%d-%b}) · certs and pending summed over all ports</div>",
-                        unsafe_allow_html=True)
 
         # ── 2. spread against stock and against fresh pending, at a chosen frequency ────────────────────────
-        freq = st.radio("Each dot is a", ["Day", "Week", "Month"], index=2, horizontal=True, key="sp_freq")
+        freq = st.radio("Frequency", ["Day", "Week", "Month"], index=2, horizontal=True, key="sp_freq", label_visibility="collapsed",
+                        format_func=lambda f: {"Day": "Daily", "Week": "Weekly", "Month": "Monthly"}[f])
         rule = {"Day": None, "Week": "W-FRI", "Month": "MS"}[freq]
         days = p.index.intersection(s.index)                  # report days that also have a spread print
         if rule is None:
@@ -111,7 +108,8 @@ def render():
                 y = dmf.shift(-k, freq="MS").reindex(fpm.index)
                 ok = y.notna()
                 rows.append((k, fpm[ok].corr(y[ok]) if ok.sum() > 5 else np.nan, int(ok.sum())))
-            lag = st.radio("Months ahead", [0, 1, 2, 3], index=1, horizontal=True, key="sp_k")
+            lag = st.radio("Months ahead", [0, 1, 2, 3], index=1, horizontal=True, key="sp_k", label_visibility="collapsed",
+                           format_func=lambda k: f"{k}m ahead")
             y = dmf.shift(-lag, freq="MS").reindex(fpm.index)
             ok = y.notna()
             fig = go.Figure()
@@ -124,5 +122,5 @@ def render():
             c.style(fig, height=340, legend=False, hovermode="closest", fmt="+.2f", xaxis=dict(title=f"fresh pending ({un})", color=c.AXIS, gridcolor=c.GRID),
                     yaxis=dict(title="Δ spread c/lb", color=c.AXIS, gridcolor=c.GRID, zeroline=True, zerolinecolor="rgba(15,23,42,.25)"))
             c.show(fig, "sp_fp")
-            st.markdown("<div class='note'>Spread change skips roll days · r by months ahead: " + " · ".join(f"<b>{k}m</b> {r:+.2f} (n {n})" for k, r, n in rows) + "</div>",
+            st.markdown("<div class='note'>r by months ahead: " + " · ".join(f"<b>{k}m</b> {r:+.2f} (n {n})" for k, r, n in rows) + "</div>",
                         unsafe_allow_html=True)

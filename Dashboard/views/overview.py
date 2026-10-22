@@ -33,8 +33,8 @@ def render():
     with st.container(border=True):
         c.head("Origin scorecard", "Sorted by share of certs &nbsp;·&nbsp; <b>Conversion</b> share of flow that reaches grading "
                                    "&nbsp;·&nbsp; <b>vs avg</b> latest flow vs the same month in past years")
-        yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
-                       format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
+        yrs = st.radio("Compare", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs", label_visibility="collapsed",
+                       format_func=lambda n: "vs last year" if n == 1 else f"vs {n}y avg")
         share = fpm[fpm.index <= full].sum()
         share = share / share.sum()
         cshare = c.certs_share(mk)

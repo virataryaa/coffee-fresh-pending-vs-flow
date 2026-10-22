@@ -264,8 +264,9 @@ def show(fig, key):
     st.plotly_chart(fig, use_container_width=True, key=key, config={"displayModeBar": False})
 
 
-def head(title, desc=""):
-    st.markdown(f"<div class='chart-head'>{title}</div>" + (f"<div class='card-desc'>{desc}</div>" if desc else ""), unsafe_allow_html=True)
+def head(title, desc="", keep=False):
+    """Chart title. The caption is shown only with keep=True: the legend should explain the chart."""
+    st.markdown(f"<div class='chart-head'>{title}</div>" + (f"<div class='card-desc'>{desc}</div>" if desc and keep else ""), unsafe_allow_html=True)
 
 
 def subtabs(options, key):
@@ -278,8 +279,8 @@ def group(title, sub=""):
     st.markdown(f"<div class='grp'><span>{title}</span>" + (f"<em>{sub}</em>" if sub else "") + "</div>", unsafe_allow_html=True)
 
 
-def page_title(title, sub=""):
-    st.markdown(f"<div class='page-title'>{title}</div>" + (f"<div class='card-desc'>{sub}</div>" if sub else ""), unsafe_allow_html=True)
+def page_title(title, sub=""):  # sub is accepted but not shown (declutter)
+    st.markdown(f"<div class='page-title'>{title}</div>", unsafe_allow_html=True)
 
 
 def table(header, rows, corner="", cls=""):

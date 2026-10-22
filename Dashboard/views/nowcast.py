@@ -59,7 +59,6 @@ def render():
         rows.append(("Total", ["", "", "", "", ""] + [c.kfmt(tot[m] * u) if pd.notna(tot[m]) else "" for m in months]
                      + [c.kfmt(nc["MTD"].sum() * u)], "tot"))
         c.table(["Certs share", "Source", "Lead", "r", "Conversion"] + [f"Fcst {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
-        st.markdown(f"<div class='note'>Weak fit = r below {c.MIN_R:.1f}, not used for forecasts.</div>", unsafe_allow_html=True)
 
     with st.expander("Fill methods compared: total forecast under each way of filling unpublished flow months (Average is used above)"):
         rows = []
@@ -72,9 +71,8 @@ def render():
         c.table(["How"] + [f"Fcst {m:%b-%y}" for m in months], rows, corner="Method")
 
     with st.container(border=True):
-        c.head("Fit history", f"<b>Bars</b> actual{D}<b>Line</b> expected from flow{D}<b>Hatched</b> forecast ahead{D}<b>Diamond</b> so far this period"
-                              f"{D}<b>Dark band</b> 1 in 4 past periods landed inside it{D}<b>Light band</b> 1 in 2 did")
-        view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], horizontal=True, key="nc_view",
+        c.head("Fit history", "Dark band: 1 in 4 past periods landed inside · light band: 1 in 2", keep=True)
+        view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], horizontal=True, key="nc_view", label_visibility="collapsed",
                         help="Grouping smooths out coffee that is graded a few weeks earlier or later than expected")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
         idx = pd.date_range(c.STUDY_START, max(months), freq="MS")

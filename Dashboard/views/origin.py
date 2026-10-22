@@ -23,14 +23,15 @@ def render():
         st.info(f"No flow data from {o} to {M['dest']}.")
         return
     a1, a2, _ = st.columns([2.6, 2.2, 2])
-    src = a1.radio("Flow source", ["Auto"] + srcs, horizontal=True, key=f"os_src_{mk}_{o}")
+    src = a1.radio("Flow source", ["Auto"] + srcs, horizontal=True, key=f"os_src_{mk}_{o}", label_visibility="collapsed")
     src = b.get("source", srcs[0]) if src == "Auto" else src
     lc = c.lag_corr(o, src, mk)
     ok = lc[(lc["lag"] <= c.AUTO_MAX_LAG) & (lc["n"] >= 3)].dropna(subset=["r"])
     dflt = int(ok.loc[ok["r"].idxmax(), "lag"]) if not ok.empty else 1
     if b.get("source") == src:
         dflt = b["lag"]
-    lag = a2.radio("Lead (months)", list(range(0, c.MAX_LAG + 1)), index=dflt, horizontal=True, key=f"os_lag_{mk}_{o}_{src}")
+    lag = a2.radio("Lead (months)", list(range(0, c.MAX_LAG + 1)), index=dflt, horizontal=True, key=f"os_lag_{mk}_{o}_{src}",
+                  format_func=lambda k: f"{k}m lead", label_visibility="collapsed")
 
     fpm = c.fp_monthly(mk)[o]
     full = c.last_full_month()
@@ -39,7 +40,6 @@ def render():
     fit = c.fitted(o, src, lag, mk)
     rtxt = f"{row['r']:.2f}" if pd.notna(row["r"]) else "–"
     ctxt = f"{row['conv']:.0%}" if pd.notna(row["conv"]) else "–"
-    st.markdown(f"<div class='card-desc'>r <b>{rtxt}</b> · R² <b>{row['r'] ** 2:.2f}</b> · conversion <b>{ctxt}</b> · {int(row['n'])} months</div>", unsafe_allow_html=True)
 
     if tab == "Fit":
         l, r = st.columns([2, 1.2], gap="medium")
@@ -52,7 +52,7 @@ def render():
             fig.add_bar(x=fpm.index, y=fpm * u, name="Fresh pending", marker_color=[c.NAVY if m <= full else "#9fb0d4" for m in fpm.index], marker_line_width=0)
             fig.add_scatter(x=xs.index, y=xs * u, name=f"Flow (+{lag}m)", yaxis="y2", mode="lines+markers", line=dict(color=c.AMBER, width=2), marker=dict(size=4))
             ff = fit[fit.index >= c.STUDY_START]
-            fig.add_scatter(x=ff.index, y=ff * u, name="Expected", mode="lines", line=dict(color=c.TEAL, width=2, dash="dot"))
+            fig.add_scatter(x=ff.index, y=ff * u, name=f"Expected ({ctxt} of flow)", mode="lines", line=dict(color=c.TEAL, width=2, dash="dot"))
             c.style(fig, height=360, y2=dict(rangemode="tozero"), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
             c.show(fig, "os_overlay")
         with r, st.container(border=True):
