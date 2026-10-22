@@ -11,7 +11,7 @@ def render():
     mk = c.market()
     M = c.MARKETS[mk]
     u, un = c.unit_factor(), c.unit_name()
-    c.page_title(f"Nowcast · {M['where']}", "Fresh pending implied by flow already shipped.")
+    c.page_title(f"Nowcast · {M['where']}", "Fresh pending expected from coffee already shipped")
     nc = c.nowcast_table(mk)
     if nc.empty:
         st.info("No origin has a usable fit.")
@@ -23,7 +23,7 @@ def render():
     tot = {m: nc[m].sum(min_count=1) for m in months}
 
     with st.container(border=True):
-        c.head("By origin", "Blank = flow not out yet.")
+        c.head("By origin", "Blank = flow data not out yet")
         rows = []
         for _, r in nc.sort_values("r", ascending=False).iterrows():
             cells = [(r["Source"], "l"), f"{r['Lag']}m", f"{r['r']:.2f}", f"{r['Conv']:.0%}"]
@@ -35,7 +35,7 @@ def render():
         c.table(["Source", "Lead", "r", "Conversion"] + [f"Est. {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
 
     with st.container(border=True):
-        c.head("Fit history", "Bars: actual. Line: flow-implied. Hatched: estimate.")
+        c.head("Fit history", "<b>Bars</b> actual &nbsp;·&nbsp; <b>Line</b> expected from flow &nbsp;·&nbsp; <b>Hatched</b> estimate ahead")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
         idx = pd.date_range(c.STUDY_START, max(months), freq="MS")
         F = pd.concat(fits, axis=1).reindex(idx)

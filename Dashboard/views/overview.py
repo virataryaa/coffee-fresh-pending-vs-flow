@@ -18,7 +18,7 @@ def render():
     c.page_title(f"Fresh Pending vs Flow · {M['where']}", f"Report {last:%d-%b-%Y}")
 
     with st.container(border=True):
-        c.head("Monthly fresh pending by origin", "New bags sent to grading. Dotted: pending at month end.")
+        c.head("Monthly fresh pending by origin", "<b>Bars</b> new bags sent to grading &nbsp;·&nbsp; <b>Dotted</b> pending at month end")
         top = list(fpm.sum().sort_values(ascending=False).index[:7])
         fig = go.Figure()
         for i, o in enumerate(top):
@@ -31,7 +31,7 @@ def render():
         c.show(fig, "ov_stack")
 
     with st.container(border=True):
-        c.head("Origin scorecard", "Conversion = share of flow that reaches grading. vs avg = latest flow vs same month, averaged over past years.")
+        c.head("Origin scorecard", "<b>Conversion</b> share of flow that reaches grading &nbsp;·&nbsp; <b>vs avg</b> latest flow vs the same month in past years")
         yrs = st.radio("Compare latest flow with", [1, 2, 3, 5], index=2, horizontal=True, key="ov_yrs",
                        format_func=lambda n: "last year" if n == 1 else f"{n}y avg")
         nc = c.nowcast_table(mk)

@@ -27,7 +27,7 @@ def render():
     fp = c.fp_monthly(mk).get("Brazil", pd.Series(dtype=float))
 
     with st.container(border=True):
-        c.head("Actual vs normal", f"Green / red: above / below 5y normal. Dotted: Brazil fresh pending at {M['where']}, shifted back 1m.")
+        c.head("Actual vs normal", f"<b>Green / red</b> above / below 5-year normal &nbsp;·&nbsp; <b>Dotted</b> Brazil fresh pending a month later")
         lm = bel.index.max()
         win = bel[bel.index >= lm - pd.DateOffset(months=47)]
         nm = pd.Series({m: _normal(bel, m) for m in win.index})
@@ -41,7 +41,7 @@ def render():
         c.show(fig, "br_actual")
 
     with st.container(border=True):
-        c.head(f"Share of Brazil Arabica going to {dest}", "Monthly and 12m average.")
+        c.head(f"Share of Brazil Arabica going to {dest}", "<b>Light</b> monthly &nbsp;·&nbsp; <b>Dark</b> 12-month average")
         s = share[share.index >= pd.Timestamp("2016-07-01")]
         fig = go.Figure()
         fig.add_scatter(x=s.index, y=s * 100, name="Monthly", mode="lines", line=dict(color="#b9c3de", width=1.4))

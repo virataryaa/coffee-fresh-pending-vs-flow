@@ -50,7 +50,7 @@ def render():
 
     # ── 1. levels over time ──────────────────────────────────────────────────────────────────────────────
     with st.container(border=True):
-        c.head("Spread vs certs + pending", "Area: certs + pending. Line: spread. Ticks: rolls.")
+        c.head("Spread vs certs + pending", "<b>Blue</b> certs &nbsp;·&nbsp; <b>Gold</b> pending &nbsp;·&nbsp; <b>Red</b> 1/2 spread &nbsp;·&nbsp; <b>Ticks</b> rolls")
         ss = s[s.index >= c.STUDY_START]
         fig = go.Figure()
         fig.add_scatter(x=p.index, y=p["Certs"] * u, name="Certs", stackgroup="a", mode="none", fillcolor="rgba(31,59,115,.55)")
@@ -69,7 +69,7 @@ def render():
     l, rr = st.columns(2, gap="medium")
     fits = {}
     with l, st.container(border=True):
-        c.head("Spread vs stock: certs vs certs + pending", "Monthly, log fit. Higher R² = better. Ring: latest.")
+        c.head("Spread vs stock: certs vs certs + pending", "Each dot is a month &nbsp;·&nbsp; higher R² = stock explains the spread better &nbsp;·&nbsp; <b>Ring</b> latest")
         fig = go.Figure()
         for col, name, colr in [("Certs", "Certs", c.NAVY), ("Pool", "Certs + pending", c.AMBER)]:
             a, b, r2 = _lnfit(m[col].values / 1000, m["spread"].values)
@@ -90,7 +90,7 @@ def render():
     full = c.last_full_month()
     fpm, dmf = fpm[fpm.index <= full], dm
     with rr, st.container(border=True):
-        c.head("Fresh pending vs next spread move", "Negative r = more grading, spread eases.")
+        c.head("Fresh pending vs next spread move", "Negative r = more coffee into grading, then the spread eases")
         rows = []
         for k in range(0, 4):
             y = dmf.shift(-k, freq="MS").reindex(fpm.index)

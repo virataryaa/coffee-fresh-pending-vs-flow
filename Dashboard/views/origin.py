@@ -42,7 +42,8 @@ def render():
 
     l, r = st.columns([2, 1.2], gap="medium")
     with l, st.container(border=True):
-        c.head(f"{o}: fresh pending vs {src.lower()}, +{lag}m", f"Bars: fresh pending. Line: flow. Dotted: expected = flow x {ctxt} conversion.")
+        c.head(f"{o} · Fresh pending vs {src}", f"<b>Bars</b> fresh pending &nbsp;·&nbsp; <b>Orange</b> flow, {lag} month{'s' if lag != 1 else ''} earlier "
+                                                f"&nbsp;·&nbsp; <b>Dotted</b> expected ({ctxt} of flow)")
         xs = x.shift(lag, freq="MS")
         xs = xs[xs.index >= c.STUDY_START - pd.DateOffset(months=6)]
         fig = go.Figure()
@@ -56,7 +57,7 @@ def render():
         xx = x.shift(lag, freq="MS").reindex(fpm.index)
         m = xx.notna() & (fpm.index <= full)
         r2 = row["r"] ** 2 if pd.notna(row["r"]) else float("nan")
-        c.head(f"Correlation · R² {r2:.2f}" if pd.notna(r2) else "Correlation", f"One dot per month. r {rtxt}. Amber: latest.")
+        c.head(f"Correlation · R² {r2:.2f}" if pd.notna(r2) else "Correlation", f"Each dot is a month &nbsp;·&nbsp; <b>Orange</b> latest")
         fig = go.Figure()
         fig.add_scatter(x=xx[m] * u, y=fpm[m] * u, mode="markers", marker=dict(size=8, color=c.NAVY, opacity=.75),
                         text=[c.mlabel(i) for i in fpm[m].index], hovertemplate="%{text}<br>flow %{x:,.0f}<br>fresh pending %{y:,.0f}<extra></extra>")
@@ -74,7 +75,7 @@ def render():
 
     l, r = st.columns([1, 1.6], gap="medium")
     with l, st.container(border=True):
-        c.head("Lead-lag", "r by lead. The peak is the transit time.")
+        c.head("Lead-lag", "Correlation for each lead. Highest bar = travel time")
         fig = go.Figure(go.Bar(x=lc["lag"], y=lc["r"], marker_color=[c.NAVY if k == lag else "#b9c3de" for k in lc["lag"]],
                                text=[f"{v:.2f}" if pd.notna(v) else "" for v in lc["r"]], textposition="outside", textfont=dict(size=10, color=c.AXIS),
                                cliponaxis=False, hovertemplate="lead %{x}m: r %{y:.2f}<extra></extra>"))
@@ -82,7 +83,7 @@ def render():
                 xaxis=dict(color=c.AXIS, showgrid=False, dtick=1, title="months"), yaxis=dict(range=[-1, 1.1], gridcolor=c.GRID, color=c.AXIS, tickfont=dict(size=10)))
         c.show(fig, "os_lag")
     with r, st.container(border=True):
-        c.head("Fresh pending by month", "One line per year.")
+        c.head("Fresh pending by month", "One line per year")
         fig = go.Figure()
         yrs = sorted(fpm.index.year.unique())
         pal = c.YEAR_PAL[-len(yrs):] if len(yrs) <= len(c.YEAR_PAL) else c.PAL
@@ -98,7 +99,7 @@ def render():
         d = d[d["Origin"] == o].groupby("Date")[["Pending", "Passed", "Failed"]].sum()
         wk = d[["Passed", "Failed"]].resample("W-FRI").sum()
         pr = d["Passed"].sum() / max(d["Passed"].sum() + d["Failed"].sum(), 1)
-        c.head("Grading outcome", f"Weekly passed / failed. Pass rate {pr:.0%}.")
+        c.head("Grading outcome", f"<b>Green</b> passed &nbsp;·&nbsp; <b>Red</b> failed, per week &nbsp;·&nbsp; pass rate <b>{pr:.0%}</b>")
         fig = go.Figure()
         fig.add_bar(x=wk.index, y=wk["Passed"] * u, name="Passed", marker_color=c.GREEN, marker_line_width=0)
         fig.add_bar(x=wk.index, y=-wk["Failed"] * u, name="Failed", marker_color=c.RED, marker_line_width=0)
