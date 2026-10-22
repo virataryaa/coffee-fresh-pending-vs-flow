@@ -16,10 +16,12 @@ PAGES = {"Overview": overview.render, "Origin Study": origin.render, "Brazil": b
          "Nowcast": nowcast.render, "Spreads": spreads.render, "Data": data.render}
 
 with st.sidebar:
-    st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>Arabica grading at Antwerp vs coffee shipped to Belgium</div>",
+    st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>KC grading vs origin flows</div>",
                 unsafe_allow_html=True)
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Section</div>", unsafe_allow_html=True)
     section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed")
+    st.markdown("<div class='sb-sep'></div><div class='sb-label'>Market</div>", unsafe_allow_html=True)
+    st.radio("Market", list(core.MARKETS), horizontal=True, key="market", label_visibility="collapsed")
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Unit</div>", unsafe_allow_html=True)
     st.radio("Unit", ["Bags", "Lots"], horizontal=True, key="unit", label_visibility="collapsed")
     m = core.manifest()

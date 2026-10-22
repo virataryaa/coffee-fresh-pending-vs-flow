@@ -77,13 +77,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 [data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {
     background: #ffffff; border: 1px solid #e3e7f0 !important; border-radius: 14px; box-shadow: 0 1px 3px rgba(10,36,99,0.06); }
 
-/* KPI cards */
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 2px 0 6px; }
-.kpi { background: #ffffff; border: 1px solid #e3e7f0; border-radius: 14px; padding: 10px 14px 9px; box-shadow: 0 1px 3px rgba(10,36,99,0.06);
        border-top: 3px solid #0a2463; }
-.kpi .kl { font-size: 10px; font-weight: 700; color: #5a6688; text-transform: uppercase; letter-spacing: .1em; }
-.kpi .kv { font-size: 1.45rem; font-weight: 700; color: #0a2463; margin: 2px 0 0; letter-spacing: -.02em; }
-.kpi .ks { font-size: 11px; color: #8a94a8; }
 
 /* Compact tables */
 .tw { overflow-x: auto; }

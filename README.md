@@ -1,13 +1,15 @@
 # Fresh Pending vs Flow Study
 
-Does the Arabica coffee newly presented for ICE grading at Antwerp ("fresh pending") follow the green coffee shipped to Belgium from each origin, and does that pipeline move the KC 1/2 spread?
+Does the Arabica coffee newly presented for ICE grading ("fresh pending") follow the green coffee shipped from each origin, and does that pipeline move the KC 1/2 spread?
+
+Two markets (sidebar switch): **Belgium** (Antwerp grading vs flows to Belgium) and **US** (Houston, Miami, New Orleans, New York, Virginia vs flows to the US). The US is a consumer market, so only a few % of its imports get graded and fits are weaker.
 
 ## Folders
 
 | Folder | Purpose |
 |---|---|
 | Code | `build_db.py`: reads the local source projects and writes the study database (no API calls, a few seconds) |
-| Database | `grading_daily.parquet`, `flows_monthly.parquet`, `spread_daily.parquet`, `manifest.json` (committed for Streamlit Cloud); `Logs/` not in git |
+| Database | `grading_daily.parquet`, `flows_monthly.parquet`, `spread_daily.parquet`, `fits.parquet` (precomputed lead-lag), `manifest.json` (committed for Streamlit Cloud); `Logs/` not in git |
 | Dashboard | Streamlit app: `app.py`, `core.py` (data and maths), `theme.py` (SnD look), `views/` (one file per section) |
 | Automator | `run_update.bat`: build, then commit and push the Database files if they changed |
 
@@ -17,8 +19,8 @@ Does the Arabica coffee newly presented for ICE grading at Antwerp ("fresh pendi
 |---|---|---|
 | Certs, Pending, Passed, Failed by origin x port | `Fundamental/Daily Miner/Database/Main/KC/kc_grading.parquet` | ICE daily certified-stock report, from 2023-07-18 |
 | KC c1, c2, 1/2 spread, Rollex active spread | `Fundamental/Daily Miner/Database/Main/KC/price_link_kc.parquet` | c/lb, kept from 2015 |
-| Origin exports to Belgium, Belgian imports by origin | `Fundamental/TDM Pro/Comprehensive TDM/Database/Coffee/` | HS 0901.11 green, tonnes x 16.67 = bags |
-| Brazil Arabica / Robusta exports to Belgium and total | `Fundamental/Cecafe Daily/Database/cecafe_destinations.csv` | K bags, from 2007 |
+| Origin exports to Belgium / US, Belgian / US imports by origin | `Fundamental/TDM Pro/Comprehensive TDM/Database/Coffee/` | HS 0901.11 green, tonnes x 16.67 = bags |
+| Brazil Arabica / Robusta exports to Belgium, USA and total | `Fundamental/Cecafe Daily/Database/cecafe_destinations.csv` | K bags, from 2007 |
 
 We read local copies rather than calling LSEG: the Daily Miner already pulls the same data, and the build needs no Workspace session.
 

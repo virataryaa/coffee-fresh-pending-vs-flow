@@ -43,27 +43,15 @@ def _lnfit(x, y):
 def render():
     u, un = c.unit_factor(), c.unit_name()
     s, p = spread(), pool()
-    c.page_title("Spreads · KC 1/2 vs the grading pipeline",
-                 "Certs say what is deliverable today; pending and fresh pending say what is about to be; flows to Belgium say what is on the water. "
-                 "Spread: Rollex active 1/2 (c/lb), changes roll-adjusted.")
-
     last = s.index.max()
     sp_now = s["spread"].iloc[-1]
-    d21 = s["d"].iloc[-21:].sum()
     certs, pend = p["Certs"].iloc[-1], p["Pending"].iloc[-1]
-    fp20 = p["FreshPending"].iloc[-20:].sum()
-    c.kpis([
-        ("1/2 spread", f"{sp_now:,.2f}", f"c/lb, {last:%d-%b} ({s['active_label'].ffill().iloc[-1]})"),
-        ("Change 1m", f"{d21:+.2f}", "c/lb, roll-adjusted"),
-        ("Certs (all ports)", c.kfmt(certs * u), un),
-        ("Pending (all ports)", c.kfmt(pend * u), f"{pend / max(certs, 1):.0%} of certs"),
-        ("Fresh pending 20d", c.kfmt(fp20 * u), "all ports"),
-    ])
+    c.page_title("Spreads · KC 1/2 vs the grading pipeline",
+                 f"Spread {sp_now:.2f} c/lb ({s['active_label'].ffill().iloc[-1]}, {last:%d-%b}). All ports. Changes skip roll days.")
 
     # ── 1. levels over time ──────────────────────────────────────────────────────────────────────────────
     with st.container(border=True):
-        c.head("Spread against the deliverable pool",
-               "Stacked: certified stock and coffee pending grading (all ports, left axis). Line: 1/2 spread (right axis). Roll days marked.")
+        c.head("Spread vs certs + pending", "Area: certs + pending. Line: spread. Ticks: rolls.")
         ss = s[s.index >= c.STUDY_START]
         fig = go.Figure()
         fig.add_scatter(x=p.index, y=p["Certs"] * u, name="Certs", stackgroup="a", mode="none", fillcolor="rgba(31,59,115,.55)")
@@ -82,8 +70,7 @@ def render():
     l, rr = st.columns(2, gap="medium")
     fits = {}
     with l, st.container(border=True):
-        c.head("Monthly spread vs stocks: certs alone vs certs + pending",
-               "Average spread in the month against month-end stock, with spread = a + b ln(stock). Higher R² = better explanation. Latest month ringed.")
+        c.head("Spread vs stock: certs vs certs + pending", "Monthly, log fit. Higher R² = better. Ring: latest.")
         fig = go.Figure()
         for col, name, colr in [("Certs", "Certs", c.NAVY), ("Pool", "Certs + pending", c.AMBER)]:
             a, b, r2 = _lnfit(m[col].values / 1000, m["spread"].values)
@@ -104,9 +91,7 @@ def render():
     full = c.last_full_month()
     fpm, dmf = fpm[fpm.index <= full], dm
     with rr, st.container(border=True):
-        c.head("Fresh pending vs the spread's next move",
-               "Correlation of a month's fresh pending (all ports) with the roll-adjusted spread change N months later. "
-               "Negative = a wave of coffee into grading is followed by the spread easing.")
+        c.head("Fresh pending vs next spread move", "Negative r = more grading, spread eases.")
         rows = []
         for k in range(0, 4):
             y = dmf.shift(-k, freq="MS").reindex(fpm.index)
@@ -130,12 +115,10 @@ def render():
 
     # ── 4. pipeline-implied spread ───────────────────────────────────────────────────────────────────────
     with st.container(border=True):
-        c.head("Pipeline-implied spread",
-               "Runs the certs + pending fit forward: adds the flow-implied Antwerp fresh pending from the Nowcast page to today's pool "
-               "(pending converts to certs at the 90-day pass rate; certs usage ignored, so read it as the supply-side push only).")
+        c.head("Pipeline-implied spread", "Today's pool + nowcast arrivals (Belgium + US), through the log fit. Supply side only.")
         a, b, r2 = fits["Pool"]
         a0, b0, _ = fits["Certs"]
-        nc = c.nowcast_table()
+        nc = pd.concat([c.nowcast_table(mk) for mk in c.MARKETS], ignore_index=True)
         w90 = p[p.index > p.index.max() - pd.Timedelta(days=90)]
         pr = w90["Passed"].sum() / max(w90["Passed"].sum() + w90["Failed"].sum(), 1)
         months = [x for x in nc.columns if isinstance(x, pd.Timestamp)] if not nc.empty else []
@@ -156,6 +139,5 @@ def render():
             rows.append((f"+ est. {mth:%b-%y}", [c.kfmt((certs + cadd) * u), c.kfmt((pend + add - cadd) * u), c.kfmt(pl * u), c.kfmt(v * u),
                                                  f"{a + b * np.log(pl / 1000):.2f}", f"{a0 + b0 * np.log((certs + cadd) / 1000):.2f}", ""], ""))
         c.table(["Certs", "Pending", "Pool", "Fresh in", "Fit: pool", "Fit: certs", "Actual"], rows, corner="Step")
-        st.markdown(f"<div class='note'>Fits on {len(m)} months: certs + pending R² {r2:.2f}, certs alone R² {fits['Certs'][2]:.2f}. "
-                    f"Pass rate used {pr:.0%}. The gap between fit and actual is what the stock picture does not explain "
-                    "(price level, carry, who holds the certs).</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='note'>{len(m)} months · R² pool {r2:.2f} vs certs {fits['Certs'][2]:.2f} · pass rate {pr:.0%}</div>",
+                    unsafe_allow_html=True)

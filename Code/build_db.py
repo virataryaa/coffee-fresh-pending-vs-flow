@@ -9,7 +9,8 @@ Sources (all refreshed by their own automators):
 
 Outputs (Database/, committed so Streamlit Cloud can read them):
   grading_daily.parquet   Date, Port, Origin, Certs, Pending, Passed, Failed, FreshPending   (bags)
-  flows_monthly.parquet   Month, Origin, Source, Bags      Source in {Origin exports, Belgian imports, Cecafe Arabica, Cecafe Robusta, Cecafe Total Arabica}
+  flows_monthly.parquet   Market, Month, Origin, Source, Bags   Market Belgium / US (All for Cecafe totals);
+                          Source in {Origin exports, Belgian imports / US imports, Cecafe Arabica, Cecafe Robusta, Cecafe ... (all destinations)}
   spread_daily.parquet    Date, c1, c2, spread_c12, spread_rollex, active_label   (c/lb, from 2015)
   manifest.json           build time and the latest date in each source
 
@@ -64,25 +65,56 @@ def _tdm(df: pd.DataFrame, origin_col: str, source: str) -> pd.DataFrame:
     return out.rename(columns={origin_col: "Origin"})[["Month", "Origin", "Source", "Bags"]]
 
 
-def build_flows() -> pd.DataFrame:
-    ex = pd.read_parquet(SRC_TDM / "tdm_coffee.parquet", columns=["REPORTER", "PARTNER", "COMMODITY", "YEAR", "MONTH", "QTY1"])
-    ex = _tdm(ex[ex["PARTNER"] == "Belgium"], "REPORTER", "Origin exports")
-    im = pd.read_parquet(SRC_TDM / "tdm_coffee_imports.parquet", columns=["REPORTER", "PARTNER", "COMMODITY", "YEAR", "MONTH", "QTY1"])
-    im = _tdm(im[im["REPORTER"] == "Belgium"], "PARTNER", "Belgian imports")
+# market -> (TDM partner / importer name, Cecafe destination, imports source label)
+MARKETS = {"Belgium": ("Belgium", "Belgium", "Belgian imports"), "US": ("United States", "USA", "US imports")}
 
+
+def build_flows() -> pd.DataFrame:
+    cols = ["REPORTER", "PARTNER", "COMMODITY", "YEAR", "MONTH", "QTY1"]
+    ex_all = pd.read_parquet(SRC_TDM / "tdm_coffee.parquet", columns=cols)
+    im_all = pd.read_parquet(SRC_TDM / "tdm_coffee_imports.parquet", columns=cols)
     cf = pd.read_csv(SRC_CECAFE).dropna(subset=["Bags (K)"])
-    cf = cf[cf["Destination"].isin(["Belgium", "Total"])]
     cf["Month"] = pd.to_datetime(dict(year=cf["Year"], month=cf["Month"], day=1))
     cf["Bags"] = cf["Bags (K)"] * 1000
-    cf["Source"] = "Cecafe " + cf["Type"] + cf["Destination"].map({"Belgium": "", "Total": " (all destinations)"})
     cf["Origin"] = "Brazil"
-    return pd.concat([ex, im, cf[["Month", "Origin", "Source", "Bags"]]], ignore_index=True)
+    out = []
+    for mk, (tdm_name, cecafe_name, imp_label) in MARKETS.items():
+        ex = _tdm(ex_all[ex_all["PARTNER"] == tdm_name], "REPORTER", "Origin exports")
+        im = _tdm(im_all[im_all["REPORTER"] == tdm_name], "PARTNER", imp_label)
+        c = cf[cf["Destination"] == cecafe_name].assign(Source="Cecafe " + cf["Type"])
+        for part in (ex, im, c[["Month", "Origin", "Source", "Bags"]]):
+            out.append(part.assign(Market=mk))
+    tot = cf[cf["Destination"] == "Total"]
+    out.append(tot.assign(Source="Cecafe " + tot["Type"] + " (all destinations)", Market="All")[["Month", "Origin", "Source", "Bags", "Market"]])
+    return pd.concat(out, ignore_index=True)[["Market", "Month", "Origin", "Source", "Bags"]]
 
 
 def build_spread() -> pd.DataFrame:
     p = pd.read_parquet(SRC_PRICE)
     p = p[p.index >= "2015-01-01"][["c1", "c2", "spread_c12", "spread_rollex", "active_label"]]
     return p.rename_axis("Date").reset_index()
+
+
+def build_fits() -> pd.DataFrame:
+    """Lead-lag tables for every origin x source, using the dashboard's own maths so the app only reads them."""
+    import logging
+    import sys
+    logging.getLogger("streamlit").setLevel(logging.ERROR)
+    for name in list(logging.root.manager.loggerDict):
+        if name.startswith("streamlit"):
+            logging.getLogger(name).setLevel(logging.ERROR)
+    sys.path.insert(0, str(ROOT / "Dashboard"))
+    import core
+    rows = []
+    for mk in core.MARKETS:
+        for o in core.study_origins(mk):
+            for s in core.sources_for(o, mk):
+                t = core.calc_lag_corr(o, s, mk)
+                t.insert(0, "Source", s)
+                t.insert(0, "Origin", o)
+                t.insert(0, "Market", mk)
+                rows.append(t)
+    return pd.concat(rows, ignore_index=True)
 
 
 def main():
@@ -93,11 +125,14 @@ def main():
     f.to_parquet(OUT / "flows_monthly.parquet", index=False)
     sp = build_spread()
     sp.to_parquet(OUT / "spread_daily.parquet", index=False)
-    last = {s: f.loc[f["Source"] == s, "Month"].max().strftime("%Y-%m") for s in sorted(f["Source"].unique())}
+    last = {f"{m} · {s}" if m != "All" else s: g_["Month"].max().strftime("%Y-%m") for (m, s), g_ in f.groupby(["Market", "Source"])}
     man = {"built": datetime.now().strftime("%Y-%m-%d %H:%M"), "grading_last": g["Date"].max().strftime("%Y-%m-%d"),
            "grading_first": g["Date"].min().strftime("%Y-%m-%d"), "grading_days": int(g["Date"].nunique()), "flows_last": last,
            "spread_last": sp["Date"].max().strftime("%Y-%m-%d")}
     (OUT / "manifest.json").write_text(json.dumps(man, indent=2))
+    fits = build_fits()
+    fits.to_parquet(OUT / "fits.parquet", index=False)
+    print(f"fits           {len(fits):>7,} rows  ({fits['Origin'].nunique()} origins)")
     print(f"grading_daily  {len(g):>7,} rows  {man['grading_first']} .. {man['grading_last']}  ({man['grading_days']} report days)")
     print(f"spread_daily   {len(sp):>7,} rows  to {man['spread_last']}")
     print(f"flows_monthly  {len(f):>7,} rows  " + ", ".join(f"{k} {v}" for k, v in last.items()))
