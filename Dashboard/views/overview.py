@@ -54,9 +54,19 @@ def render():
                     cells = [f"{share.get(o, 0):.1%}", (b["source"], "l"), f"{b['lag']}m", (f"{b['r']:.2f}", rcls), f"{b['conv']:.0%}",
                              c.mlabel(lm), c.kfmt(f.iloc[-1] * u),
                              (f"{vs:+.0%}" if pd.notna(vs) else "–", "up" if pd.notna(vs) and vs > 0 else "dn" if pd.notna(vs) else "mut"),
-                             c.kfmt(est * u), c.kfmt(fpm.loc[cur, o] * u)]
+                             est_cell(est, b, lm, cur, u), c.kfmt(fpm.loc[cur, o] * u)]
                 else:
                     cells = [f"{share.get(o, 0):.1%}", ("no flow data", "l mut")] + ["–"] * 7 + [c.kfmt(fpm.loc[cur, o] * u)]
                 rows.append((o, cells, ""))
             c.table(["Share", "Best source", "Lead", "r", "Conversion", "Flow month", "Flow", "vs last yr" if yrs == 1 else f"vs {yrs}y avg", f"Est. {cur:%b}", "MTD"], rows, corner="Origin")
             st.markdown("<div class='note'>Shading: r ≥ 0.7 / 0.5 / 0.3. Under 0.4 is likely noise.</div>", unsafe_allow_html=True)
+
+
+def est_cell(est, b, lm, cur, u):
+    """The estimate, or why there is none: a weak fit, or the flow month it needs is not published yet."""
+    if pd.notna(est):
+        return c.kfmt(est * u)
+    if b["r"] < c.MIN_R:
+        return ("weak fit", "mut")
+    need = cur - pd.DateOffset(months=b["lag"])
+    return (f"needs {need:%b} flow", "mut") if need > lm else ("–", "mut")
