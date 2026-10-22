@@ -12,6 +12,18 @@ from views import brazil, data, nowcast, origin, overview, spreads  # noqa: E402
 
 st.markdown(theme.CSS, unsafe_allow_html=True)
 
+
+@st.cache_resource
+def _data_state() -> dict:
+    return {}
+
+
+# Cached frames survive a redeploy: drop them whenever a Database file changes, else new code meets old data.
+_ver = tuple(sorted((p.name, p.stat().st_mtime_ns, p.stat().st_size) for p in core.DB.glob("*.*")))
+if _data_state().get("ver") != _ver:
+    st.cache_data.clear()
+    _data_state()["ver"] = _ver
+
 PAGES = {"Overview": overview.render, "Origin Study": origin.render, "Brazil": brazil.render,
          "Nowcast": nowcast.render, "Spreads": spreads.render, "Data": data.render}
 
