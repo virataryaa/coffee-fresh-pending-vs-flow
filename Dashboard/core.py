@@ -82,15 +82,6 @@ def last_full_month(mk: str = "Belgium") -> pd.Timestamp:
     return cur if nxt.month != last.month else cur - pd.DateOffset(months=1)
 
 
-@st.cache_data(ttl=600)
-def coverage() -> pd.Series:
-    """Report days found per month / business days in the month (missing ICE files lose that day's Passed + Failed)."""
-    d = port_daily("Belgium")
-    days = d.groupby(d["Date"].dt.to_period("M").dt.to_timestamp())["Date"].nunique()
-    bdays = pd.Series({m: len(pd.bdate_range(m, m + pd.offsets.MonthEnd(0))) for m in days.index})
-    return (days / bdays).clip(upper=1.0)
-
-
 def study_origins(mk: str, min_share: float = 0.01) -> list:
     """Origins graded in the market, by fresh pending since STUDY_START, dropping the ones below min_share."""
     t = fp_monthly(mk).sum().sort_values(ascending=False)
@@ -246,12 +237,6 @@ def nowcast_table(mk: str, method: str = DEFAULT_FILL) -> pd.DataFrame:
 
 
 # ── format / charts ───────────────────────────────────────────────────────────────────────────────────────
-def fnum(v, dec=0, sign=False):
-    if v is None or pd.isna(v):
-        return "–"
-    return f"{v:+,.{dec}f}" if sign else f"{v:,.{dec}f}"
-
-
 def kfmt(v):
     """Bags as 12.3k; lots as plain numbers."""
     if v is None or pd.isna(v):

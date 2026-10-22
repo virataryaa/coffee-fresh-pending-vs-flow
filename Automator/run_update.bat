@@ -17,6 +17,7 @@ git add Database\grading_daily.parquet Database\flows_monthly.parquet Database\s
 git diff --cached --quiet
 if errorlevel 1 (
   git commit -m "auto: data refresh %date%" >> "%LOG%" 2>&1
+  git pull --rebase origin main >> "%LOG%" 2>&1
   git push origin main >> "%LOG%" 2>&1
 ) else (
   echo no data change >> "%LOG%"
