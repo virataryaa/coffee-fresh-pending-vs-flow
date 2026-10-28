@@ -194,18 +194,28 @@ def render():
                     S[k_] = S[k_] * (1 - min(ro[k_] * kk, 1.0)) + add[k_]
                     fc_o[k_].append(S[k_])
             hist_o = Lo[Lo.index >= start]
-            xs = list(hist_o.index) + list(path)
-            cols = ["#5b77a8", "#6fa3b8", "#bcd0dc", "#dcc59a", "#e6e9f0"]   # soft navy, soft teal, mist blue, pale gold, pale grey
+            line_c = ["#1f3b73", "#2f6f88", "#6f93ab", "#b08d57", "#8a94a6"]   # bold edges: navy, teal, steel, gold, grey
+            rgb = lambda h_, a_: "rgba({},{},{},{})".format(*(int(h_[j:j + 2], 16) for j in (1, 3, 5)), a_)   # noqa: E731
+            fm = list(path)
             fig = go.Figure()
-            for i, k_ in enumerate(hist_o.columns):
-                ys = list(hist_o[k_]) + fc_o[k_]
-                kind = ["actual"] * len(hist_o) + ["forecast"] * len(path)
-                fig.add_scatter(x=me(xs), y=np.array(ys) * u, name=k_, mode="lines", stackgroup="o", line=dict(width=0.6, color=cols[i]),
-                                fillcolor=cols[i], customdata=kind, hovertemplate=f"{k_} %{{y:,.0f}} (%{{customdata}})<extra></extra>")
+            for i, k_ in enumerate(hist_o.columns):            # history: light areas, bold line on each origin's edge
+                fig.add_scatter(x=me(hist_o.index), y=hist_o[k_] * u, name=k_, mode="lines", stackgroup="o", legendgroup=k_,
+                                line=dict(width=2, color=line_c[i]), fillcolor=rgb(line_c[i], .22),
+                                hovertemplate=f"{k_} %{{y:,.0f}}<extra></extra>")
+            for i, k_ in enumerate(hist_o.columns):            # forecast: stacked bars, the coming month strongest
+                fig.add_bar(x=me(fm), y=np.array(fc_o[k_]) * u, name=k_, showlegend=False, legendgroup=k_, width=18 * 86400000,
+                            marker=dict(color=[rgb(line_c[i], .85 if j == 0 else .35) for j in range(len(fm))],
+                                        line=dict(color=line_c[i], width=1)),
+                            hovertemplate=f"{k_} forecast %{{y:,.0f}}<extra></extra>")
+            tot_x = [hist_o.index[-1]] + fm if len(hist_o) else fm
+            tot_y = ([float(hist_o.iloc[-1].sum())] if len(hist_o) else []) + [sum(fc_o[k_][j] for k_ in fc_o) for j in range(len(fm))]
+            fig.add_scatter(x=me(tot_x), y=np.array(tot_y) * u, name="Total", mode="lines+markers+text", line=dict(color=c.NAVY, width=2, dash="dot"),
+                            marker=dict(size=6, color=c.NAVY), text=[""] + [c.kfmt(v * u) for v in tot_y[1:]], textposition="top center",
+                            textfont=dict(size=10, color=c.NAVY), hovertemplate="Total %{y:,.0f}<extra></extra>")
             st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month"
-                        f"{D}each origin leaves at its own pace (see Methodology){D}ICE report, from {c.STUDY_START:%b-%y}</div>",
+                        f"{D}bars = forecast, darkest = this month{D}ICE report, from {c.STUDY_START:%b-%y}</div>",
                         unsafe_allow_html=True)
-            c.style(fig, height=300, xaxis=xax)
+            c.style(fig, height=320, barmode="stack", xaxis=xax)
             c.show(fig, "nc_level_o")
             st.session_state[f"origin_rates_{mk}"] = {k_: (float(own[k_]) if pd.notna(own.get(k_)) else None) for k_ in Lo.columns}
         if path and ex_m is not None:
