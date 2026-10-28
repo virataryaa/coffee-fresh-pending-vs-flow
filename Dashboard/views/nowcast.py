@@ -169,6 +169,26 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
                     f"next months use <b>{xm}</b> ({c.EXIT_METHODS[xm]})"
                     + (f"{D}{cur:%b} uses <b>this month so far</b> ({frac:.0%} of the month done)" if use_mtd else "")
                     + f"{D}rates used: {used_txt}</div>", unsafe_allow_html=True)
+        with st.expander("How certs leaving works", expanded=False):
+            k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
+            lm = em.loc[full]
+            last6 = xrate.iloc[-6:]
+            sc_t = xscore["miss"]
+            mtd_txt = ""
+            if use_mtd and not cur_days.empty:
+                x_so_far = float(lvf.iloc[-1] + cur_days["Passed"].sum() - cur_days["Certs"].iloc[-1])
+                mtd_txt = (f"<div class='ex-s'><span>3</span><b>This month: use what has already left</b>{cur:%b} started at <b>{k(lvf.iloc[-1])}</b>. "
+                           f"So far <b>{k(x_so_far)}</b> has left ({x_so_far / float(lvf.iloc[-1]):.0%}) with {frac:.0%} of the month done, "
+                           f"so the full month is about <b>{rates.get(cur, np.nan):.0%}</b>.</div>")
+            st.markdown(f"""<div class='explain'><div class='ex-f'>Certs leaving = last month's stock + passed - this month's stock</div><div class='ex-g'>
+<div class='ex-s'><span>1</span><b>Measure what left</b>{full:%b-%y} started at <b>{k(lm['L0'])}</b>, <b>{k(lm['P'])}</b> passed grading and it ended at
+<b>{k(lm['L'])}</b>. So <b>{k(lm['X'])}</b> left: <b>{lm['rate']:.0%}</b> of the stock. This covers decerts, deliveries and transfers.</div>
+<div class='ex-s'><span>2</span><b>Next months: last 6 months' average</b>{' · '.join(f"{m:%b} {v:.0%}" for m, v in last6.items())}.
+Average <b>{last6.mean():.0%}</b> a month, used for every month after this one.</div>
+{mtd_txt}
+<div class='ex-s'><span>{4 if mtd_txt else 3}</span><b>Why this way</b>We tested every month since {c.EXIT_TEST_FROM:%Y} ({int(xscore['n'].max())} months).
+Avg miss: recent 6m <b>{k(sc_t['Recent 6m'])}</b>, seasonal {k(sc_t['Seasonal'])}, blend {k(sc_t['Blend'])},
+this month so far <b>{k(sc_t['This month so far'])}</b>. Simplest that works wins.</div></div></div>""", unsafe_allow_html=True)
 
     left, right = st.columns([3, 2])
     with left, st.container(border=True):
