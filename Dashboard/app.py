@@ -38,11 +38,8 @@ with st.sidebar:
     st.radio("Unit", ["Bags", "Lots"], horizontal=True, key="unit", label_visibility="collapsed")
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Study</div>", unsafe_allow_html=True)
     section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k),
-                       on_change=lambda: st.query_params.clear())          # leaving Methodology
+                       on_change=lambda: st.session_state.update(method=False))   # leaving Methodology
     m = core.manifest()
     st.markdown(f"<div class='sb-sep'></div><div class='sb-foot'>Built {m['built']}</div>", unsafe_allow_html=True)
 
-# Methodology: a link pinned top right; ?page=method opens it
-on_method = st.query_params.get("page") == "method"
-st.markdown(f"<a class='top-method{' on' if on_method else ''}' href='?page=method' target='_self'>Methodology</a>", unsafe_allow_html=True)
-(method.render if on_method else PAGES[section])()
+(method.render if st.session_state.get("method") else PAGES[section])()   # Methodology: button in each page's title row

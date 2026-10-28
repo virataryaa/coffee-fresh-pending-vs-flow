@@ -443,9 +443,16 @@ def bar(title):
     st.markdown(f"<div class='sec-bar'>{title}</div>", unsafe_allow_html=True)
 
 
-def page_title(title, sub=""):  # sub is accepted but not shown (declutter)
+def page_title(title, sub="", back=False):  # sub is accepted but not shown (declutter)
+    """Title row: title + data date on the left, Methodology (or Back on that page) on the right."""
     asof = pd.Timestamp(manifest()["grading_last"]).strftime("%d-%b-%y")
-    st.markdown(f"<div class='page-title'>{title}<span class='asof'>ICE data as of {asof}</span></div>", unsafe_allow_html=True)
+    left, right = st.columns([5, 1], vertical_alignment="center")
+    left.markdown(f"<div class='page-title'>{title}<span class='asof'>ICE data as of {asof}</span></div>", unsafe_allow_html=True)
+    with right:
+        if back:
+            st.button("← Back", key="btn_back", on_click=lambda: st.session_state.update(method=False), use_container_width=True)
+        else:
+            st.button("Methodology", key="btn_method", on_click=lambda: st.session_state.update(method=True), use_container_width=True)
 
 
 def table(header, rows, corner="", cls=""):

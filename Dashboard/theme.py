@@ -158,10 +158,14 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .dot.a { background: #e0a23a; box-shadow: 0 0 6px rgba(224,162,58,.5); }
 .dot.r { background: #d1495b; box-shadow: 0 0 6px rgba(209,73,91,.5); }
 .explain .ex-f { text-align: center; color: #0a2463; font-size: 13.5px; font-weight: 600; margin-bottom: 12px; }
-.top-method { position: fixed; top: 9px; right: 64px; z-index: 999991; text-decoration: none !important; font-size: 12px; font-weight: 700;
-  letter-spacing: .14em; text-transform: uppercase; color: #0a2463 !important; padding: 6px 14px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.95); background: linear-gradient(135deg, #e4f0fa, #e2f3f0); box-shadow: 0 2px 12px rgba(10,36,99,.12); }
-.top-method:hover, .top-method.on { background: linear-gradient(135deg, #0a2463, #2a8c8c); color: #fff !important; }
+.page-title { margin-bottom: 0 !important; }
+.page-title .asof { float: none !important; margin-left: 12px; vertical-align: middle; }
+.st-key-btn_method button, .st-key-btn_back button { border-radius: 999px !important; font-size: 12px !important; font-weight: 700 !important;
+  letter-spacing: .12em; text-transform: uppercase; color: #0a2463 !important; border: 1px solid rgba(255,255,255,.95) !important;
+  background: linear-gradient(135deg, #e4f0fa, #e2f3f0) !important; box-shadow: 0 2px 12px rgba(10,36,99,.12); min-height: 34px; }
+.st-key-btn_method button:hover, .st-key-btn_back button:hover { background: linear-gradient(135deg, #0a2463, #2a8c8c) !important; color: #fff !important; }
+.st-key-btn_method button p, .st-key-btn_back button p { font-size: 12px !important; font-weight: 700 !important; color: inherit !important; }
+.mt-note { color: #6b7391; font-size: 12.5px; text-align: center; margin-top: 2px; }
 .st-key-glow_method { box-shadow: 0 0 0 1px rgba(42,140,140,.45), 0 0 26px rgba(42,140,140,.22) !important; border-radius: 12px; }
 .fl { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 0; margin: 10px 0; }
 .fl-node { min-width: 130px; max-width: 190px; text-align: center; padding: 10px 14px; border-radius: 12px; background: #fff;
@@ -182,6 +186,6 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .mt-what { color: #3a4466; font-size: 13.5px; margin: 4px 0 2px 33px; }
 .mt-how { color: #2b3452; font-size: 13.5px; line-height: 1.6; margin: 4px 0 0 14px; }
 .mt-how b { color: #0a2463; }
-@media (max-width: 700px) { .fl-arrow { width: 60px; } .top-method { right: 52px; } }
+@media (max-width: 700px) { .fl-arrow { width: 60px; } }
 </style>
 """
