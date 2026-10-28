@@ -157,5 +157,6 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .dot.g { background: #2e9e5b; box-shadow: 0 0 6px rgba(46,158,91,.55); }
 .dot.a { background: #e0a23a; box-shadow: 0 0 6px rgba(224,162,58,.5); }
 .dot.r { background: #d1495b; box-shadow: 0 0 6px rgba(209,73,91,.5); }
+.explain .ex-f { text-align: center; color: #0a2463; font-size: 13.5px; font-weight: 600; margin-bottom: 12px; }
 </style>
 """

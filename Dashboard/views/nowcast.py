@@ -99,7 +99,7 @@ def render():
 
     c.bar("Certs forecast")
     with st.container(border=True, key="glow_certs"):
-        c.head("Certified stock: actual and forecast", f"Next month = this month x (1 - share leaving) + new certs{D}leaving: see below", keep=True)
+        c.head("Certified stock: actual and forecast")
         hx = lvf.index[lvf.index >= c.STUDY_START]
         fig = go.Figure()
         if path:
@@ -126,7 +126,7 @@ def render():
             lo1, hi1 = base[-1] - w50 * np.sqrt(n_), base[-1] + w50 * np.sqrt(n_)
             lo2, hi2 = max(base[-1] - w80 * np.sqrt(n_), 0), base[-1] + w80 * np.sqrt(n_)
             with st.expander("How the bands work", expanded=False):
-                st.markdown(f"""<div class='explain'><div class='ex-g'>
+                st.markdown(f"""<div class='explain'><div class='ex-f'>Forecast: next month = this month x (1 - share leaving) + new certs</div><div class='ex-g'>
 <div class='ex-s'><span>1</span><b>Test the rule on the past</b>We pretend it is the start of each past month and forecast its end.
 In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_act)}</b>: off by <b>{k(abs(ex_act - ex_pred))}</b>.</div>
 <div class='ex-s'><span>2</span><b>Line up all the misses</b>We did this for {len(res)} months. Half missed by less than <b>{k(w50)}</b>: that is the
