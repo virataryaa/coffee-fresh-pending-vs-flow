@@ -133,12 +133,9 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .kc-badge { display: inline-block; background: #fff7e8; border: 1px solid #e8cf9f; color: #6b4e16; font-size: 12.5px; border-radius: 999px;
   padding: 4px 12px; margin: -6px 0 12px; }
 .kc-badge b { color: #0a2463; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 6px; }
-.kpi { background: rgba(255,255,255,.75); border: 1px solid #e3e7f0; border-radius: 12px; padding: 10px 14px; }
-.kpi:nth-child(2) { border-color: rgba(42,140,140,.55); box-shadow: 0 0 16px rgba(42,140,140,.18); }
-.kpi .kl { color: #3a4466; font-size: 12px; }
-.kpi .kv { color: #0a2463; font-size: 1.45rem; font-weight: 700; line-height: 1.2; }
-.kpi:nth-child(2) .kv { color: #0f5e5e; }
-.kpi .ks { color: #6b7391; font-size: 11.5px; }
+.sec-bar { text-align: center; text-transform: uppercase; letter-spacing: .22em; font-size: 12.5px; font-weight: 700; color: #0a2463;
+  margin: 22px 0 10px; padding: 9px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,.9);
+  background: linear-gradient(90deg, rgba(214,232,245,0) 0%, rgba(200,226,242,.85) 30%, rgba(222,240,248,.95) 50%, rgba(200,226,242,.85) 70%, rgba(214,232,245,0) 100%);
+  box-shadow: 0 2px 14px rgba(120,170,210,.15), inset 0 1px 0 rgba(255,255,255,.9); }
 </style>
 """

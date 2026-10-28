@@ -315,6 +315,11 @@ def group(title, sub=""):
     st.markdown(f"<div class='grp'><span>{title}</span>" + (f"<em>{sub}</em>" if sub else "") + "</div>", unsafe_allow_html=True)
 
 
+def bar(title):
+    """Centred caps section bar (icy gradient)."""
+    st.markdown(f"<div class='sec-bar'>{title}</div>", unsafe_allow_html=True)
+
+
 def page_title(title, sub=""):  # sub is accepted but not shown (declutter)
     st.markdown(f"<div class='page-title'>{title}</div>", unsafe_allow_html=True)
 

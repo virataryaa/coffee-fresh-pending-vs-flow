@@ -95,21 +95,11 @@ def render():
     res = pd.Series(res, dtype=float)
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
 
-    # ── headline ──
-    end = fx[-1] if fx else None
     now = float(lv.iloc[-1])
-    kp = [("Certs now", c.kfmt(now * u), f"{un} · {lv.index[-1]:%b-%y}"),
-          (f"Certs end {end:%b-%y}" if end else "Certs ahead", c.kfmt(path[end] * u) if end else "-",
-           f"{path[end] / now - 1:+.0%} vs now" if end else ""),
-          ("New certs ahead", c.kfmt(sum(ctot[m] for m in fx) * scale * u), f"{un} · next {len(fx)} months"),
-          ("Pass rate", f"{pr['_all']:.0%}", f"last {c.PASS_MONTHS} months"),
-          ("Leaving certs", f"{er:.0%}", "of stock a month")]
-    st.markdown("<div class='kpis'>" + "".join(f"<div class='kpi'><div class='kl'>{a}</div><div class='kv'>{b}</div><div class='ks'>{d}</div></div>"
-                                               for a, b, d in kp) + "</div>", unsafe_allow_html=True)
 
-    c.group("1 · Certs", "Where certified stock is heading")
+    c.bar("Certs forecast")
     with st.container(border=True, key="glow_certs"):
-        c.head("Certified stock: actual and forecast", f"Next month = this month x (1 - {er:.0%} leaving) + new certs{D}bands = past misses", keep=True)
+        c.head("Certified stock: actual and forecast", f"Next month = this month x (1 - {er:.0%} leaving) + new certs", keep=True)
         hx = lvf.index[lvf.index >= c.STUDY_START]
         fig = go.Figure()
         if path:
@@ -130,6 +120,9 @@ def render():
             fig.add_scatter(x=[lv.index[-1]], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
         c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
         c.show(fig, "nc_level")
+        st.markdown(f"<div class='note'><b>Bands:</b> we ran the same rule on every past month and noted how far off it was. "
+                    f"Dark = half the misses were smaller than {c.kfmt(w50 * u)} {un}. Light = 4 in 5 were smaller than {c.kfmt(w80 * u)}. "
+                    f"They widen each month ahead because misses pile up.</div>", unsafe_allow_html=True)
 
     left, right = st.columns([3, 2])
     with left, st.container(border=True):
@@ -178,7 +171,7 @@ def render():
             st.markdown(f"<div class='note'>r {r_:.2f}{D}R² {r_ ** 2:.2f}{D}avg miss {c.kfmt((act[ok] - exp[ok]).abs().mean() * u)} {un} a month"
                         f"{D}pass rate now {pr['_all']:.0%}</div>", unsafe_allow_html=True)
 
-    c.group("2 · Fresh pending", "What shipped coffee says is coming to grading")
+    c.bar("Fresh pending forecast")
     with st.container(border=True):
         fill_txt = f"{D}<b>~ tinted</b> uses filled flow (average of 3 methods, compared below)"
         c.head("Fresh pending by origin", f"Forecast = flow from 'lead' months earlier x conversion{D}~ = uses estimated flow", keep=True)
