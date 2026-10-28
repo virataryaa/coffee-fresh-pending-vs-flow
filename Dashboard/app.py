@@ -25,7 +25,7 @@ if _data_state().get("ver") != _ver:
     _data_state()["ver"] = _ver
 
 PAGES = {"Overview": overview.render, "Origin Study": origin.render, "Brazil": brazil.render,
-         "Nowcast": nowcast.render, "Spreads": spreads.render, "Data": data.render}
+         "Spreads": spreads.render, "Data": data.render, "Nowcast": nowcast.render}   # Forecast last, glowing (theme.py)
 LABELS = {"Overview": "Grading Overview", "Origin Study": "Origin Deep Dive", "Brazil": "Brazil Focus",
           "Nowcast": "Forecast", "Spreads": "Spread Impact", "Data": "Data Sources"}
 

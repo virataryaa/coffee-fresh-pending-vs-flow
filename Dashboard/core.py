@@ -223,6 +223,15 @@ def graded_monthly(mk: str) -> tuple:
     return tuple(g[c_].unstack().fillna(0.0).reindex(idx, fill_value=0.0) for c_ in ("Passed", "Failed"))
 
 
+@st.cache_data(ttl=600)
+def certs_level(mk: str) -> pd.Series:
+    """Certified stock (bags, all origins) at the market's ports on each month's last report day; the current month = latest day."""
+    d = port_daily(mk)
+    day = d.groupby("Date")["Certs"].sum()
+    day = day[day > 0]
+    return day.groupby(day.index.to_period("M").to_timestamp()).last()
+
+
 def pass_rate(mk: str, asof: pd.Timestamp = None) -> pd.Series:
     """Per origin: passed / (passed + failed) over the PASS_MONTHS full months up to `asof` (default: last full month).
     Thinly graded origins fall back to the market-wide rate; '_all' holds that rate."""

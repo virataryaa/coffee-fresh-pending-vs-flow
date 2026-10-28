@@ -36,9 +36,152 @@ def render():
     tot = {m: nc[m].sum(min_count=1) for m in months}
     share = c.certs_share(mk)
 
+    pr = c.pass_rate(mk)
+    passed, _ = c.graded_monthly(mk)
+    org = [o for o in nc["Origin"] if o in passed]
+    st.markdown("<div class='kc-badge'><b>Arabica only (ICE KC)</b> &nbsp;·&nbsp; Robusta (ICE RC, London) is not in this study</div>",
+                unsafe_allow_html=True)
+
+    # ── new certs per origin = fresh pending forecast x pass rate ──
+    crow, ctot = [], {m: np.nan for m in months}
+    for _, r in nc.iterrows():
+        o = r["Origin"]
+        rate = float(pr.get(o, pr["_all"]))
+        vals = [r[m] * rate if pd.notna(r[m]) else np.nan for m in months]
+        for m, v in zip(months, vals):
+            if pd.notna(v):
+                ctot[m] = (0.0 if pd.isna(ctot[m]) else ctot[m]) + v
+        got = float(passed.loc[cur, o]) if o in passed and cur in passed.index else 0.0
+        crow.append((o, [f"{rate:.0%}"] + [(f"~{c.kfmt(v * u)}", "fill") if pd.notna(v) and m in r["filled"] else
+                                            (c.kfmt(v * u), "b" if m == cur else "") if pd.notna(v) else ("", "mut")
+                                            for m, v in zip(months, vals)] + [c.kfmt(got * u)], ""))
+    got_tot = float(passed.loc[cur, org].sum()) if cur in passed.index else 0.0
+    fx = [m for m in months if pd.notna(ctot[m])]
+
+    # ── past check: real fresh pending x the pass rate known the month before ──
+    idx = pd.date_range(c.STUDY_START + pd.DateOffset(months=c.PASS_MONTHS), full, freq="MS")
+    exp, used = {}, {}
+    for m in idx:
+        rm = c.pass_rate(mk, m - pd.DateOffset(months=1))
+        fp_m = sum(fpm.loc[m, o] for o in org if o in fpm)
+        exp[m] = sum(fpm.loc[m, o] * float(rm.get(o, rm["_all"])) for o in org if o in fpm)
+        used[m] = exp[m] / fp_m if fp_m > 0 else float(rm["_all"])   # blended rate behind that month's estimate
+    exp, used = pd.Series(exp, dtype=float), pd.Series(used, dtype=float)
+    act = passed.reindex(idx)[org].sum(axis=1)
+    ok = act.notna() & exp.notna()
+    r_ = float(np.corrcoef(act[ok], exp[ok])[0, 1]) if ok.sum() > 3 else np.nan
+
+    # ── certified stock level: last level x (1 - exit rate) + new certs ──
+    lv = c.certs_level(mk)
+    p_all = passed.sum(axis=1)
+    lvf = lv[lv.index <= full]
+    exits = lvf.shift(1) + p_all.reindex(lvf.index) - lvf
+    xrate = (exits / lvf.shift(1)).dropna()
+    er = float(xrate.iloc[-6:].mean()) if len(xrate) else 0.0
+    win = (p_all.index <= full) & (p_all.index > full - pd.DateOffset(months=12))
+    fit_p = passed.loc[win, org].sum().sum()
+    scale = max(float(p_all[win].sum() / fit_p), 1.0) if fit_p > 0 else 1.0   # origins without a fit still add some certs
+    L, path = float(lvf.iloc[-1]), {}
+    for m in fx:
+        L = L * (1 - er) + ctot[m] * scale
+        path[m] = L
+    res = []                                                 # one-month-ahead misses of the same rule, for the bands
+    for m in exp.index:
+        pm = m - pd.DateOffset(months=1)
+        if pm in lvf.index and m in lvf.index:
+            e6 = xrate[xrate.index < m].iloc[-6:].mean()
+            if pd.notna(e6):
+                res.append(abs(float(lvf[m] - (lvf[pm] * (1 - e6) + exp[m] * scale))))
+    res = pd.Series(res, dtype=float)
+    w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
+
+    # ── headline ──
+    end = fx[-1] if fx else None
+    now = float(lv.iloc[-1])
+    kp = [("Certs now", c.kfmt(now * u), f"{un} · {lv.index[-1]:%b-%y}"),
+          (f"Certs end {end:%b-%y}" if end else "Certs ahead", c.kfmt(path[end] * u) if end else "-",
+           f"{path[end] / now - 1:+.0%} vs now" if end else ""),
+          ("New certs ahead", c.kfmt(sum(ctot[m] for m in fx) * scale * u), f"{un} · next {len(fx)} months"),
+          ("Pass rate", f"{pr['_all']:.0%}", f"last {c.PASS_MONTHS} months"),
+          ("Leaving certs", f"{er:.0%}", "of stock a month")]
+    st.markdown("<div class='kpis'>" + "".join(f"<div class='kpi'><div class='kl'>{a}</div><div class='kv'>{b}</div><div class='ks'>{d}</div></div>"
+                                               for a, b, d in kp) + "</div>", unsafe_allow_html=True)
+
+    c.group("1 · Certs", "Where certified stock is heading")
+    with st.container(border=True, key="glow_certs"):
+        c.head("Certified stock: actual and forecast", f"Next month = this month x (1 - {er:.0%} leaving) + new certs{D}bands = past misses", keep=True)
+        hx = lvf.index[lvf.index >= c.STUDY_START]
+        fig = go.Figure()
+        if path:
+            px_ = [lvf.index[-1]] + list(path)
+            base = np.array([float(lvf.iloc[-1])] + list(path.values()))
+            h = np.sqrt(np.arange(len(px_)))                 # misses add up the further out
+            for w, shade, name in [(w80, "rgba(42,140,140,.08)", "4 in 5 past misses"), (w50, "rgba(42,140,140,.18)", "1 in 2 past misses")]:
+                fig.add_scatter(x=px_, y=(base + w * h) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
+                fig.add_scatter(x=px_, y=np.clip(base - w * h, 0, None) * u, mode="lines", line=dict(width=0), fill="tonexty",
+                                fillcolor=shade, name=name, hoverinfo="skip")
+        fig.add_scatter(x=hx, y=lvf[hx] * u, name="Actual", mode="lines", line=dict(color=c.NAVY, width=2.5))
+        if path:
+            fig.add_scatter(x=px_, y=base * u, name="Forecast", mode="lines+markers", line=dict(color=c.TEAL, width=2.5, dash="dash"),
+                            marker=dict(size=7))
+            fig.add_annotation(x=px_[-1], y=base[-1] * u, text=f"<b>{c.kfmt(base[-1] * u)}</b>", showarrow=False, xanchor="left", xshift=8,
+                               font=dict(color=c.TEAL, size=12))
+        if lv.index[-1] > full:
+            fig.add_scatter(x=[lv.index[-1]], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
+        c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
+        c.show(fig, "nc_level")
+
+    left, right = st.columns([3, 2])
+    with left, st.container(border=True):
+        c.head("New certs by origin", f"Fresh pending forecast x pass rate{D}~ = uses estimated flow", keep=True)
+        rows = crow + [("Total", [f"{pr['_all']:.0%}"] + [c.kfmt(ctot[m] * u) if pd.notna(ctot[m]) else "" for m in months]
+                        + [c.kfmt(got_tot * u)], "tot")]
+        c.table(["Pass rate"] + [f"{m:%b-%y}" for m in months] + [f"{cur:%b} so far"], rows, corner="Origin")
+    with right, st.container(border=True):
+        c.head("New certs a month", "Actual passed and forecast", keep=True)
+        hist = pd.date_range(full - pd.DateOffset(months=17), full, freq="MS")
+        fig = go.Figure()
+        fig.add_bar(x=hist, y=passed.reindex(hist)[org].sum(axis=1) * u, name="Actual", marker_color=c.NAVY, marker_line_width=0)
+        fig.add_bar(x=fx, y=[ctot[m] * u for m in fx], name="Forecast", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
+                                                                                  pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
+        if got_tot > 0:
+            fig.add_scatter(x=[cur], y=[got_tot * u], name="So far", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
+        c.style(fig, height=300, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M3", tickformat="%b-%y"))
+        c.show(fig, "nc_certs_fc")
+
+    with st.container(border=True):
+        c.head("Does pass rate work?", f"Real fresh pending x pass rate vs actual passed{D}rate = last {c.PASS_MONTHS} months before each month", keep=True)
+        left, right = st.columns([2, 1])
+        with left:
+            fig = go.Figure()
+            fig.add_bar(x=idx, y=act * u, name="Actual passed", marker_color=c.NAVY, marker_line_width=0)
+            fig.add_scatter(x=idx, y=exp * u, name="Fresh pending x pass rate", mode="lines", line=dict(color=c.TEAL, width=2))
+            fig.add_scatter(x=idx, y=used, name="Pass rate used", mode="lines", yaxis="y2", line=dict(color=c.AMBER, width=1.5, dash="dot"),
+                            hovertemplate="%{y:.0%}")
+            c.style(fig, height=300, y2=dict(tickformat=".0%", range=[0, 1]), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
+            c.show(fig, "nc_certs")
+        with right:
+            top = float(max(act[ok].max(), exp[ok].max())) * u * 1.05 if ok.any() else 1.0
+            sc = go.Figure()
+            sc.add_scatter(x=[0, top], y=[0, top], mode="lines", name="Perfect match", line=dict(color=c.AXIS, width=1, dash="dash"), hoverinfo="skip")
+            sc.add_scatter(x=exp[ok] * u, y=act[ok] * u, mode="markers", name="Month", text=[f"{m:%b-%y}" for m in exp[ok].index],
+                           marker=dict(color=c.NAVY, size=8, opacity=.8), hovertemplate="%{text}<br>Expected %{x:,.0f}<br>Actual %{y:,.0f}<extra></extra>")
+            if pd.notna(r_):
+                sc.add_annotation(x=0.03, y=0.97, xref="paper", yref="paper", xanchor="left", yanchor="top", showarrow=False, align="left",
+                                  text=f"<b>r {r_:.2f}</b><br><b>R² {r_ ** 2:.2f}</b>", font=dict(color=c.NAVY, size=12),
+                                  bgcolor="rgba(255,255,255,.85)", bordercolor="rgba(10,36,99,.15)", borderpad=4)
+            c.style(sc, height=300, hovermode="closest", legend=False,
+                    xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text="Fresh pending x pass rate", font=dict(size=10))),
+                    yaxis=dict(gridcolor=c.GRID, color=c.AXIS, title=dict(text="Actual passed", font=dict(size=10))))
+            c.show(sc, "nc_certs_sc")
+        if ok.sum() > 3:
+            st.markdown(f"<div class='note'>r {r_:.2f}{D}R² {r_ ** 2:.2f}{D}avg miss {c.kfmt((act[ok] - exp[ok]).abs().mean() * u)} {un} a month"
+                        f"{D}pass rate now {pr['_all']:.0%}</div>", unsafe_allow_html=True)
+
+    c.group("2 · Fresh pending", "What shipped coffee says is coming to grading")
     with st.container(border=True):
         fill_txt = f"{D}<b>~ tinted</b> uses filled flow (average of 3 methods, compared below)"
-        c.head("By origin", f"Sorted by share of certs{D}Forecast = flow from 'lead' months earlier x conversion{fill_txt}")
+        c.head("Fresh pending by origin", f"Forecast = flow from 'lead' months earlier x conversion{D}~ = uses estimated flow", keep=True)
         fitted = {r["Origin"]: r for _, r in nc.iterrows()}
         rows = []
         for o in sorted(c.study_origins(mk), key=lambda o: -float(share.get(o, 0.0))):
@@ -60,7 +203,7 @@ def render():
                      + [c.kfmt(nc["MTD"].sum() * u)], "tot"))
         c.table(["Certs share", "Source", "Lead", "r", "Conversion"] + [f"Fcst {m:%b-%y}" for m in months] + [f"MTD {cur:%b}"], rows, corner="Origin")
 
-    with st.expander("Fill methods compared: total forecast under each way of filling unpublished flow months (Average is used above)"):
+    with st.expander("Missing flow months: how each fill method changes the total"):
         rows = []
         for meth in c.FILL_METHODS + ["Average", "Off"]:
             t = nc if meth == c.DEFAULT_FILL else c.nowcast_table(mk, meth)
@@ -71,7 +214,7 @@ def render():
         c.table(["How"] + [f"Fcst {m:%b-%y}" for m in months], rows, corner="Method")
 
     with st.container(border=True):
-        c.head("Fit history", "Dark band: 1 in 4 past periods landed inside · light band: 1 in 2", keep=True)
+        c.head("Fresh pending: actual vs expected from flow", "Bands = past misses", keep=True)
         view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], horizontal=True, key="nc_view", label_visibility="collapsed",
                         help="Grouping smooths out coffee that is graded a few weeks earlier or later than expected")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
@@ -124,72 +267,3 @@ def render():
         if ok.sum() > 3:
             st.markdown(f"<div class='note'>r {np.corrcoef(a[ok], e[ok])[0, 1]:.2f} · avg miss {c.kfmt((a[ok] - e[ok]).abs().mean() * u)} {un} per {per} "
                         f"· avg actual {c.kfmt(a[ok].mean() * u)} · dark band ±{c.kfmt(w25 * u)} · light band ±{c.kfmt(w50 * u)}</div>", unsafe_allow_html=True)
-
-    pr = c.pass_rate(mk)
-    passed, _ = c.graded_monthly(mk)
-    org = [o for o in nc["Origin"] if o in passed]
-    with st.container(border=True):
-        c.head("Certs forecast", f"Certs = fresh pending forecast x pass rate{D}Pass rate = share passed, last {c.PASS_MONTHS} months", keep=True)
-        rows, ctot = [], {m: np.nan for m in months}
-        for _, r in nc.iterrows():
-            o, rate = r["Origin"], float(pr.get(o, pr["_all"]))
-            vals = [r[m] * rate if pd.notna(r[m]) else np.nan for m in months]
-            for m, v in zip(months, vals):
-                if pd.notna(v):
-                    ctot[m] = (0.0 if pd.isna(ctot[m]) else ctot[m]) + v
-            got = float(passed.loc[cur, o]) if o in passed and cur in passed.index else 0.0
-            rows.append((o, [f"{rate:.0%}"] + [(f"~{c.kfmt(v * u)}", "fill") if pd.notna(v) and m in r["filled"] else
-                                                (c.kfmt(v * u), "b" if m == cur else "") if pd.notna(v) else ("", "mut")
-                                                for m, v in zip(months, vals)] + [c.kfmt(got * u)], ""))
-        got_tot = float(passed.loc[cur, org].sum()) if cur in passed.index else 0.0
-        rows.append(("Total", [f"{pr['_all']:.0%}"] + [c.kfmt(ctot[m] * u) if pd.notna(ctot[m]) else "" for m in months]
-                     + [c.kfmt(got_tot * u)], "tot"))
-        c.table(["Pass rate"] + [f"Certs {m:%b-%y}" for m in months] + [f"Passed MTD {cur:%b}"], rows, corner="Origin")
-
-        hist = pd.date_range(c.STUDY_START, full, freq="MS")
-        act_p = passed.reindex(hist)[org].sum(axis=1)
-        fx = [m for m in months if pd.notna(ctot[m])]
-        fig = go.Figure()
-        fig.add_bar(x=hist, y=act_p * u, name="Actual passed", marker_color=c.NAVY, marker_line_width=0)
-        fig.add_bar(x=fx, y=[ctot[m] * u for m in fx], name="Certs forecast", marker=dict(color="rgba(42,140,140,.25)", line=dict(color=c.TEAL, width=1.2),
-                                                                                          pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
-        if got_tot > 0:
-            fig.add_scatter(x=[cur], y=[got_tot * u], name="Passed so far", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
-        c.style(fig, height=320, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
-        c.show(fig, "nc_certs_fc")
-        st.markdown("<div class='note'>Next months: " + D.join(f"{m:%b} {c.kfmt(ctot[m] * u)}" for m in fx) + f" {un}</div>", unsafe_allow_html=True)
-
-    with st.container(border=True):
-        c.head("Check: actual passed vs fresh pending x pass rate",
-               f"Uses real fresh pending{D}Pass rate = last {c.PASS_MONTHS} months before each month (dotted, right axis)", keep=True)
-        idx = pd.date_range(c.STUDY_START + pd.DateOffset(months=c.PASS_MONTHS), full, freq="MS")
-        exp, used = {}, {}
-        for m in idx:
-            rm = c.pass_rate(mk, m - pd.DateOffset(months=1))
-            fp_m = sum(fpm.loc[m, o] for o in org if o in fpm)
-            exp[m] = sum(fpm.loc[m, o] * float(rm.get(o, rm["_all"])) for o in org if o in fpm)
-            used[m] = exp[m] / fp_m if fp_m > 0 else float(rm["_all"])   # blended rate behind that month's estimate
-        exp, used = pd.Series(exp), pd.Series(used)
-        act = passed.reindex(idx)[org].sum(axis=1)
-        fig = go.Figure()
-        fig.add_bar(x=idx, y=act * u, name="Actual passed", marker_color=c.NAVY, marker_line_width=0)
-        fig.add_scatter(x=idx, y=exp * u, name="Fresh pending x pass rate", mode="lines", line=dict(color=c.TEAL, width=2))
-        fig.add_scatter(x=idx, y=used, name="Pass rate used", mode="lines", yaxis="y2", line=dict(color=c.AMBER, width=1.5, dash="dot"),
-                        hovertemplate="%{y:.0%}")
-        c.style(fig, height=300, y2=dict(tickformat=".0%", range=[0, 1]), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
-        ok = act.notna() & exp.notna()
-        left, right = st.columns([2, 1])
-        with left:
-            c.show(fig, "nc_certs")
-        with right:
-            top = float(max(act[ok].max(), exp[ok].max())) * u * 1.05 if ok.any() else 1.0
-            sc = go.Figure()
-            sc.add_scatter(x=[0, top], y=[0, top], mode="lines", name="Perfect match", line=dict(color=c.AXIS, width=1, dash="dash"), hoverinfo="skip")
-            sc.add_scatter(x=exp[ok] * u, y=act[ok] * u, mode="markers", name="Month", text=[f"{m:%b-%y}" for m in exp[ok].index],
-                           marker=dict(color=c.NAVY, size=8, opacity=.8), hovertemplate="%{text}<br>Expected %{x:,.0f}<br>Actual %{y:,.0f}<extra></extra>")
-            c.style(sc, height=300, hovermode="closest", xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text="Fresh pending x pass rate", font=dict(size=10))),
-                    yaxis=dict(gridcolor=c.GRID, color=c.AXIS, title=dict(text="Actual passed", font=dict(size=10))))
-            c.show(sc, "nc_certs_sc")
-        if ok.sum() > 3:
-            st.markdown(f"<div class='note'>Match r {np.corrcoef(act[ok], exp[ok])[0, 1]:.2f}{D}avg miss {c.kfmt((act[ok] - exp[ok]).abs().mean() * u)} {un} a month"
-                        f"{D}pass rate now {pr['_all']:.0%}</div>", unsafe_allow_html=True)
