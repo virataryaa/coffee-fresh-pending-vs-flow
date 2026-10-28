@@ -187,5 +187,12 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .mt-how { color: #2b3452; font-size: 13.5px; line-height: 1.6; margin: 4px 0 0 14px; }
 .mt-how b { color: #0a2463; }
 @media (max-width: 700px) { .fl-arrow { width: 60px; } }
+.st-key-glow_method { padding: 26px 18px !important; }
+.st-key-glow_method .fl { margin: 18px 0; gap: 10px 0; }
+.st-key-glow_method .fl-node { min-width: 150px; padding: 14px 18px; }
+.st-key-glow_method .fl-node b { font-size: 14.5px; }
+.st-key-glow_method .fl-arrow { width: 140px; }
+[class*="st-key-mt_step"] { padding: 18px 16px !important; }
+[class*="st-key-mt_step"] .fl { margin: 16px 0; }
 </style>
 """
