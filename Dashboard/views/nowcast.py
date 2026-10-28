@@ -124,7 +124,8 @@ def render():
             n_ = len(px_) - 1
             lo1, hi1 = base[-1] - w50 * np.sqrt(n_), base[-1] + w50 * np.sqrt(n_)
             lo2, hi2 = max(base[-1] - w80 * np.sqrt(n_), 0), base[-1] + w80 * np.sqrt(n_)
-            st.markdown(f"""<div class='explain'><div class='ex-t'>How the bands work</div><div class='ex-g'>
+            with st.expander("How the bands work", expanded=False):
+                st.markdown(f"""<div class='explain'><div class='ex-g'>
 <div class='ex-s'><span>1</span><b>Test the rule on the past</b>We pretend it is the start of each past month and forecast its end.
 In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_act)}</b>: off by <b>{k(abs(ex_act - ex_pred))}</b>.</div>
 <div class='ex-s'><span>2</span><b>Line up all the misses</b>We did this for {len(res)} months. Half missed by less than <b>{k(w50)}</b>: that is the
