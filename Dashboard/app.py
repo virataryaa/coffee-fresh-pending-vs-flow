@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -6,9 +7,24 @@ import streamlit as st
 st.set_page_config(page_title="Certs Forecast", layout="wide", initial_sidebar_state="expanded")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import core  # noqa: E402
-import theme  # noqa: E402
-from views import brazil, data, method, nowcast, origin, overview, spreads  # noqa: E402
+
+
+def _load():
+    """Import the app's own modules. Streamlit Cloud reloads them when a push lands; a session importing at that moment gets a
+    KeyError from importlib, so drop the half-loaded modules and try again instead of showing an error page."""
+    for attempt in range(5):
+        try:
+            import core, theme  # noqa: E401
+            from views import brazil, data, method, nowcast, origin, overview, spreads
+            return core, theme, brazil, data, method, nowcast, origin, overview, spreads
+        except KeyError:
+            for k in [k for k in sys.modules if k in ("core", "theme", "views") or k.startswith("views.")]:
+                sys.modules.pop(k, None)
+            time.sleep(0.3 * (attempt + 1))
+    raise RuntimeError("App modules failed to load, refresh the page")
+
+
+core, theme, brazil, data, method, nowcast, origin, overview, spreads = _load()
 
 st.markdown(theme.CSS, unsafe_allow_html=True)
 
