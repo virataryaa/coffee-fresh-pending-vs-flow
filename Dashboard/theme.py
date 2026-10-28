@@ -143,5 +143,15 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .st-key-section div[role="radiogroup"] label:last-child::before { content: "OUTPUT"; position: absolute; top: -20px; left: 2px;
   font-size: 10.5px; font-weight: 700; letter-spacing: .18em; color: #6b7391; }
 .st-key-unit { margin-top: -6px; }
+.explain { margin: 6px 0 2px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,.9);
+  background: linear-gradient(135deg, #eaf4fb 0%, #e4f3f1 45%, #f1eefb 100%); box-shadow: 0 6px 24px rgba(10,36,99,.08), inset 0 1px 0 #fff; }
+.explain .ex-t { text-align: center; text-transform: uppercase; letter-spacing: .2em; font-size: 12px; font-weight: 700; color: #0a2463; margin-bottom: 12px; }
+.explain .ex-g { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.explain .ex-s { background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.95); border-radius: 11px; padding: 11px 13px;
+  font-size: 13px; line-height: 1.5; color: #2b3452; }
+.explain .ex-s > b:first-of-type { display: block; color: #0a2463; font-size: 13.5px; margin-bottom: 3px; }
+.explain .ex-s span { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
+  background: linear-gradient(135deg, #2a8c8c, #3a5596); color: #fff; font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+.explain .ex-s b { color: #0f5e5e; }
 </style>
 """

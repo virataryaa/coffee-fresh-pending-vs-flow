@@ -24,15 +24,12 @@ def render():
     mk = c.market()
     M = c.MARKETS[mk]
     u, un = c.unit_factor(), c.unit_name()
-    c.page_title(f"Certs Forecast · {M['where']}", "Fresh pending expected from coffee already shipped")
+    c.page_title(f"Arabica Certs Forecast · {M['where']}", "Fresh pending expected from coffee already shipped")
     nc = c.nowcast_table(mk)
     if nc.empty:
         st.info("No origin has a usable fit.")
         return
     months = [m for m in nc.columns if isinstance(m, pd.Timestamp)]
-    h = st.radio("Months ahead", list(range(1, len(months) + 1)), index=len(months) - 1, horizontal=True, key="nc_h",
-                 format_func=lambda k: f"{k}m ahead", label_visibility="collapsed", help="How far out to forecast")
-    months = months[:h]
     cur = months[0]
     fpm = c.fp_monthly(mk)
     full = c.last_full_month()
@@ -42,8 +39,6 @@ def render():
     pr = c.pass_rate(mk)
     passed, _ = c.graded_monthly(mk)
     org = [o for o in nc["Origin"] if o in passed]
-    st.markdown("<div class='kc-badge'><b>Arabica only (ICE KC)</b> &nbsp;·&nbsp; Robusta (ICE RC, London) is not in this study</div>",
-                unsafe_allow_html=True)
 
     # ── new certs per origin = fresh pending forecast x pass rate ──
     crow, ctot = [], {m: np.nan for m in months}
@@ -94,8 +89,9 @@ def render():
         if pm in lvf.index and m in lvf.index:
             e6 = xrate[xrate.index < m].iloc[-6:].mean()
             if pd.notna(e6):
-                res.append(abs(float(lvf[m] - (lvf[pm] * (1 - e6) + exp[m] * scale))))
-    res = pd.Series(res, dtype=float)
+                res.append((m, float(lvf[pm] * (1 - e6) + exp[m] * scale), float(lvf[m])))
+    ex_m, ex_pred, ex_act = res[-1] if res else (None, np.nan, np.nan)      # latest tested month, for the explainer
+    res = pd.Series([abs(b - a) for _, a, b in res], dtype=float)
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
 
     now = float(lv.iloc[-1])
@@ -123,9 +119,20 @@ def render():
             fig.add_scatter(x=[lv.index[-1]], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
         c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
         c.show(fig, "nc_level")
-        st.markdown(f"<div class='note'><b>Bands:</b> we ran the same rule on every past month and noted how far off it was. "
-                    f"Dark = half the misses were smaller than {c.kfmt(w50 * u)} {un}. Light = 4 in 5 were smaller than {c.kfmt(w80 * u)}. "
-                    f"They widen each month ahead because misses pile up.</div>", unsafe_allow_html=True)
+        if path and ex_m is not None:
+            k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
+            n_ = len(px_) - 1
+            lo1, hi1 = base[-1] - w50 * np.sqrt(n_), base[-1] + w50 * np.sqrt(n_)
+            lo2, hi2 = max(base[-1] - w80 * np.sqrt(n_), 0), base[-1] + w80 * np.sqrt(n_)
+            st.markdown(f"""<div class='explain'><div class='ex-t'>How the bands work</div><div class='ex-g'>
+<div class='ex-s'><span>1</span><b>Test the rule on the past</b>We pretend it is the start of each past month and forecast its end.
+In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_act)}</b>: off by <b>{k(abs(ex_act - ex_pred))}</b>.</div>
+<div class='ex-s'><span>2</span><b>Line up all the misses</b>We did this for {len(res)} months. Half missed by less than <b>{k(w50)}</b>: that is the
+<b>dark band</b>. 4 in 5 missed by less than <b>{k(w80)}</b>: that is the <b>light band</b>.</div>
+<div class='ex-s'><span>3</span><b>Further out, wider</b>Each month adds its own miss, so the band grows: about {k(w50)} one month out,
+{k(w50 * np.sqrt(2))} two months out, {k(w50 * np.sqrt(n_))} at {n_} months.</div>
+<div class='ex-s'><span>4</span><b>How to read it</b>For {px_[-1]:%b-%y} the forecast is <b>{k(base[-1])}</b>. Likely <b>{k(lo1)} to {k(hi1)}</b> (dark),
+very likely <b>{k(lo2)} to {k(hi2)}</b> (light).</div></div></div>""", unsafe_allow_html=True)
 
     left, right = st.columns([3, 2])
     with left, st.container(border=True):
