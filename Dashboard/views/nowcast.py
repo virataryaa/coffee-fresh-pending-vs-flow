@@ -120,15 +120,23 @@ def render():
         back_m = {"6 months": 6, "1 year": 12, "3 years": 36}.get(since)
         start = full - pd.DateOffset(months=back_m - 1) if back_m else lvf.index.min()
         dtick = {"6 months": "M1", "1 year": "M1", "3 years": "M3"}.get(since, "M12")
-        me = lambda ix: pd.DatetimeIndex(ix) + pd.offsets.MonthEnd(0)   # noqa: E731  a month's stock is plotted at its month end
+        me = lambda ix: pd.DatetimeIndex(ix)                    # noqa: E731  each month sits on its own label; value = stock at its end
         hx = lvf.index[lvf.index >= start]
         end_m = fx[-1] if fx else full
+        # one month axis for both charts: same range, same ticks, * on forecast months
+        step_m = {"M1": 1, "M2": 2, "M3": 3}.get(dtick, 12)
+        all_m = pd.date_range(start, end_m, freq="MS")
+        tv = list(all_m[::-1][::step_m][::-1])
+        tt = [f"{t:%b-%y}" + ("*" if t in fx else "") for t in tv]
+        xax = dict(color=c.AXIS, showgrid=False, tickvals=tv, ticktext=tt, hoverformat="End of %b-%y",
+                   range=[start - pd.Timedelta(days=16), end_m + pd.Timedelta(days=16)])
         fig = go.Figure()
         for y in range(start.year, end_m.year + 1):              # KC delivery months
             for mo in (3, 5, 7, 9, 12):
                 m0 = pd.Timestamp(y, mo, 1)
                 if start <= m0 <= end_m:
-                    fig.add_vrect(x0=m0, x1=m0 + pd.offsets.MonthEnd(0), fillcolor="rgba(176,141,87,.05)", line_width=0, layer="below")
+                    fig.add_vrect(x0=m0 - pd.Timedelta(days=15), x1=m0 + pd.Timedelta(days=15), fillcolor="rgba(176,141,87,.05)",
+                                  line_width=0, layer="below")
         if path:
             px_ = [lvf.index[-1]] + list(path)
             base = np.array([float(lvf.iloc[-1])] + list(path.values()))
@@ -152,9 +160,9 @@ def render():
                                font=dict(color=c.TEAL, size=12))
         if lv.index[-1] > full:
             today = c.certs_daily(mk).index.max()
-            fig.add_scatter(x=[today], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER),
+            fig.add_scatter(x=[cur], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER),
                             hovertemplate=f"Today ({today:%d-%b}) %{{y:,.0f}}<extra></extra>")
-        c.style(fig, height=380, xaxis=dict(color=c.AXIS, showgrid=False, dtick=dtick, tickformat="%b-%y", hoverformat="End of %b-%y"))
+        c.style(fig, height=380, xaxis=xax)
         c.show(fig, "nc_level")
 
         # ── by origin: stock per origin (ICE report); each origin leaves at half its own 6-month pace, half the market's,
@@ -187,20 +195,17 @@ def render():
                     fc_o[k_].append(S[k_])
             hist_o = Lo[Lo.index >= start]
             xs = list(hist_o.index) + list(path)
-            cols = ["#1f3b73", "#3f7f9a", "#9db7c9", "#c9a96e", "#d9dde6"]   # navy, steel teal, mist blue, muted gold, pale grey
+            cols = ["#5b77a8", "#6fa3b8", "#bcd0dc", "#dcc59a", "#e6e9f0"]   # soft navy, soft teal, mist blue, pale gold, pale grey
             fig = go.Figure()
             for i, k_ in enumerate(hist_o.columns):
                 ys = list(hist_o[k_]) + fc_o[k_]
                 kind = ["actual"] * len(hist_o) + ["forecast"] * len(path)
                 fig.add_scatter(x=me(xs), y=np.array(ys) * u, name=k_, mode="lines", stackgroup="o", line=dict(width=0.6, color=cols[i]),
                                 fillcolor=cols[i], customdata=kind, hovertemplate=f"{k_} %{{y:,.0f}} (%{{customdata}})<extra></extra>")
-            step_m = {"M1": 1, "M2": 2, "M3": 3}.get(dtick if since != "All" else "M3", 3)
-            tv = me(xs[::-1][::step_m][::-1])
-            tt = [f"{t:%b-%y}" + ("*" if t.to_period("M").to_timestamp() in path else "") for t in tv]
-            st.markdown("<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month"
+            st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month"
                         f"{D}each origin leaves at its own pace (see Methodology){D}ICE report, from {c.STUDY_START:%b-%y}</div>",
                         unsafe_allow_html=True)
-            c.style(fig, height=300, xaxis=dict(color=c.AXIS, showgrid=False, tickvals=tv, ticktext=tt, hoverformat="End of %b-%y"))
+            c.style(fig, height=300, xaxis=xax)
             c.show(fig, "nc_level_o")
             st.session_state[f"origin_rates_{mk}"] = {k_: (float(own[k_]) if pd.notna(own.get(k_)) else None) for k_ in Lo.columns}
         if path and ex_m is not None:
