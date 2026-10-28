@@ -24,7 +24,7 @@ def render():
     mk = c.market()
     M = c.MARKETS[mk]
     u, un = c.unit_factor(), c.unit_name()
-    c.page_title(f"Forecast · {M['where']}", "Fresh pending expected from coffee already shipped")
+    c.page_title(f"Certs Forecast · {M['where']}", "Fresh pending expected from coffee already shipped")
     nc = c.nowcast_table(mk)
     if nc.empty:
         st.info("No origin has a usable fit.")
