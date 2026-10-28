@@ -317,9 +317,9 @@ def exit_backtest(mk: str) -> tuple:
     return pred, pd.DataFrame(rows).set_index("method")
 
 
-def best_exit_method(mk: str) -> str:
-    """Forward method (not the month-to-date pace, which only exists for the current month) with the smallest average miss."""
-    return exit_backtest(mk)[1].drop("This month so far")["miss"].idxmin()
+# Forward exit rate is fixed to the recent 6-month average: in the 2016+ test it is best or within 2% of best in every market,
+# so picking a method per market adds nothing. The current month uses the month-to-date pace, which beats everything.
+EXIT_METHOD = "Recent 6m"
 
 
 def pass_rate(mk: str, asof: pd.Timestamp = None, months: int = PASS_MONTHS) -> pd.Series:

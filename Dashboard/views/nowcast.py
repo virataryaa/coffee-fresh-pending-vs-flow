@@ -73,7 +73,7 @@ def render():
     fit_p = passed.loc[win, org].sum().sum()
     scale = max(float(p_all[win].sum() / fit_p), 1.0) if fit_p > 0 else 1.0   # origins without a fit still add some certs
     xpred, xscore = c.exit_backtest(mk)
-    xm = c.best_exit_method(mk)
+    xm = c.EXIT_METHOD
     frac = c.month_progress(mk)
     use_mtd = cur > full and xscore.loc["This month so far", "miss"] < xscore.loc[xm, "miss"]
     cur_days = c.certs_daily(mk).loc[lambda d: d.index >= cur]
