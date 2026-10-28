@@ -55,6 +55,25 @@ def lseg_certs() -> pd.DataFrame:
     return m[["Date", "Port", "Origin", "CertsLSEG"]]
 
 
+CERT_MARKETS = {"Belgium": ["AN"], "US": ["HO", "MI", "NO", "NY"], "Combined": ["AN", "HO", "MI", "NO", "NY"]}  # no Virginia RIC
+
+
+def build_certs_daily(g: pd.DataFrame) -> pd.DataFrame:
+    """Per market and day: certified stock (LSEG KC-TOT-{port}, from 2010) and bags passed (LSEG KC-{port}-PASSGRAD before the
+    ICE report series starts, the report after). Exits (certs leaving) = yesterday's stock + passed - today's stock."""
+    k = pd.read_parquet(SRC_CERTS)
+    k = (k.set_index("Date") if "Date" in k.columns else k).sort_index()
+    k.index = pd.to_datetime(k.index)
+    out = []
+    for mk, codes in CERT_MARKETS.items():
+        lvl = k[[f"KC-TOT-{c}" for c in codes]].astype("float64").sum(axis=1, min_count=1).dropna()
+        pas = k[[f"KC-{c}-PASSGRAD" for c in codes if f"KC-{c}-PASSGRAD" in k]].astype("float64").fillna(0.0).sum(axis=1)
+        gp = g[g["Port"].isin([PORT_CODES[c] for c in codes])].groupby("Date")["Passed"].sum()
+        pas = pas.where(pas.index < gp.index.min(), gp.reindex(pas.index).fillna(0.0))
+        out.append(pd.DataFrame({"Market": mk, "Date": lvl.index, "Certs": lvl.values, "Passed": pas.reindex(lvl.index).fillna(0.0).values}))
+    return pd.concat(out, ignore_index=True)
+
+
 def build_grading() -> pd.DataFrame:
     g = pd.read_parquet(SRC_GRADING)
     g = g[g["Tag"].isin(["Certs", "Pending", "Passed", "Failed"])]
@@ -151,6 +170,8 @@ def main():
     g = build_grading()
     f = build_flows()
     g.to_parquet(OUT / "grading_daily.parquet", index=False)
+    cd = build_certs_daily(g)
+    cd.to_parquet(OUT / "certs_daily.parquet", index=False)
     f.to_parquet(OUT / "flows_monthly.parquet", index=False)
     sp = build_spread()
     sp.to_parquet(OUT / "spread_daily.parquet", index=False)
@@ -163,6 +184,7 @@ def main():
     fits.to_parquet(OUT / "fits.parquet", index=False)
     print(f"fits           {len(fits):>7,} rows  ({fits['Origin'].nunique()} origins)")
     print(f"grading_daily  {len(g):>7,} rows  {man['grading_first']} .. {man['grading_last']}  ({man['grading_days']} report days)")
+    print(f"certs_daily    {len(cd):>7,} rows  {cd['Date'].min():%Y-%m-%d} .. {cd['Date'].max():%Y-%m-%d}")
     print(f"spread_daily   {len(sp):>7,} rows  to {man['spread_last']}")
     print(f"flows_monthly  {len(f):>7,} rows  " + ", ".join(f"{k} {v}" for k, v in last.items()))
 

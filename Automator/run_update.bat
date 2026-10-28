@@ -13,7 +13,7 @@ if errorlevel 1 (
   echo build_db.py failed >> "%LOG%"
   exit /b 1
 )
-git add Database\grading_daily.parquet Database\flows_monthly.parquet Database\spread_daily.parquet Database\fits.parquet Database\manifest.json >> "%LOG%" 2>&1
+git add Database\grading_daily.parquet Database\flows_monthly.parquet Database\spread_daily.parquet Database\fits.parquet Database\certs_daily.parquet Database\manifest.json >> "%LOG%" 2>&1
 git diff --cached --quiet
 if errorlevel 1 (
   git commit -m "auto: data refresh %date%" >> "%LOG%" 2>&1

@@ -232,6 +232,96 @@ def certs_level(mk: str) -> pd.Series:
     return day.groupby(day.index.to_period("M").to_timestamp()).last()
 
 
+# ── certs leaving (exits) ─────────────────────────────────────────────────────────────────────────────────
+EXIT_METHODS = {"Recent 6m": "average of the last 6 months", "Recent 3m": "average of the last 3 months",
+                "Seasonal": "same month, average of the last 5 years", "Blend": "half recent 6m, half seasonal"}
+EXIT_TEST_FROM = pd.Timestamp("2016-01-01")
+
+
+@st.cache_data(ttl=600)
+def certs_daily(mk: str) -> pd.DataFrame:
+    """Daily certified stock and bags passed for the market (LSEG ports, from 2010), written by Code/build_db.py."""
+    d = pd.read_parquet(DB / "certs_daily.parquet")
+    return d[d["Market"] == mk].set_index("Date")[["Certs", "Passed"]].sort_index()
+
+
+@st.cache_data(ttl=600)
+def exits_monthly(mk: str) -> pd.DataFrame:
+    """Per month: stock at month end (L), passed (P), certs that left (X = last month's L + P - L) and X as a share of last month's L.
+    The current month is month to date."""
+    d = certs_daily(mk)
+    mon = d.index.to_period("M").to_timestamp()
+    m = pd.DataFrame({"L": d["Certs"].groupby(mon).last(), "P": d["Passed"].groupby(mon).sum()})
+    m["L0"] = m["L"].shift(1)
+    m["X"] = m["L0"] + m["P"] - m["L"]
+    m["rate"] = m["X"] / m["L0"]
+    return m.iloc[1:]
+
+
+def _seasonal(rate: pd.Series, m: pd.Timestamp) -> float:
+    past = rate[(rate.index.month == m.month) & (rate.index < m) & (rate.index >= m - pd.DateOffset(years=5))]
+    return float(past.mean()) if len(past) >= 2 else np.nan
+
+
+def exit_rate(rate: pd.Series, m: pd.Timestamp, method: str) -> float:
+    """Exit rate for month m from full months before it."""
+    prev = rate[rate.index < m]
+    if method == "Recent 6m":
+        return float(prev.iloc[-6:].mean())
+    if method == "Recent 3m":
+        return float(prev.iloc[-3:].mean())
+    if method == "Seasonal":
+        return _seasonal(prev, m)
+    return (float(prev.iloc[-6:].mean()) + _seasonal(prev, m)) / 2
+
+
+def month_progress(mk: str) -> float:
+    """Share of the current month's business days already reported."""
+    d = certs_daily(mk)
+    last = d.index.max()
+    cur = last.to_period("M").to_timestamp()
+    total = len(pd.bdate_range(cur, cur + pd.offsets.MonthEnd(0)))
+    return min(int((d.index >= cur).sum()) / total, 1.0)
+
+
+def mtd_rate(days: pd.DataFrame, l0: float, frac: float) -> float:
+    """Exit rate implied by the month so far: exits to date / l0, scaled to a full month."""
+    if days.empty or l0 <= 0 or frac <= 0:
+        return np.nan
+    return float((l0 + days["Passed"].sum() - days["Certs"].iloc[-1]) / l0 / frac)
+
+
+@st.cache_data(ttl=600)
+def exit_backtest(mk: str) -> tuple:
+    """Each method's predicted exit rate for every past full month from EXIT_TEST_FROM, plus 'This month so far' (the month-to-date
+    pace cut at today's share of the month). Returns (predictions, scores) with the average miss in bags and r per method."""
+    em = exits_monthly(mk)
+    full = em.iloc[:-1]                                      # drop the current, partial month
+    rate = full["rate"]
+    d = certs_daily(mk)
+    frac = month_progress(mk)
+    ev = full.index[full.index >= EXIT_TEST_FROM]
+    pred = pd.DataFrame(index=ev, columns=list(EXIT_METHODS) + ["This month so far"], dtype=float)
+    for m in ev:
+        for meth in EXIT_METHODS:
+            pred.loc[m, meth] = exit_rate(rate, m, meth)
+        days = d[(d.index >= m) & (d.index <= m + pd.offsets.MonthEnd(0))]
+        cut = days.iloc[:max(1, int(round(len(days) * frac)))]
+        pred.loc[m, "This month so far"] = mtd_rate(cut, float(full.loc[m, "L0"]), len(cut) / max(len(days), 1))
+    rows = []
+    for meth in pred:
+        e = (pred[meth] - rate[ev]).dropna()
+        rows.append(dict(method=meth, miss=float((e * full.loc[e.index, "L0"]).abs().mean()),
+                         r=float(np.corrcoef(pred.loc[e.index, meth], rate[e.index])[0, 1]), n=len(e)))
+    pred["Actual"] = rate[ev]
+    return pred, pd.DataFrame(rows).set_index("method")
+
+
+def best_exit_method(mk: str) -> str:
+    """Forward method (not the month-to-date pace, which only exists for the current month) with the smallest average miss."""
+    return exit_backtest(mk)[1].drop("This month so far")["miss"].idxmin()
+
+
 def pass_rate(mk: str, asof: pd.Timestamp = None, months: int = PASS_MONTHS) -> pd.Series:
     """Per origin: passed / (passed + failed) over the `months` full months up to `asof` (default: last full month).
     Thinly graded origins fall back to the market-wide rate; '_all' holds that rate."""

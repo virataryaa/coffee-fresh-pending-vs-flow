@@ -64,35 +64,42 @@ def render():
     r_ = float(np.corrcoef(act[ok], exp[ok])[0, 1]) if ok.sum() > 3 else np.nan
 
     # ── certified stock level: last level x (1 - exit rate) + new certs ──
-    lv = c.certs_level(mk)
-    p_all = passed.sum(axis=1)
+    em = c.exits_monthly(mk)
+    lv = em["L"]
     lvf = lv[lv.index <= full]
-    exits = lvf.shift(1) + p_all.reindex(lvf.index) - lvf
-    xrate = (exits / lvf.shift(1)).dropna()
-    er = float(xrate.iloc[-6:].mean()) if len(xrate) else 0.0
+    xrate = em.loc[em.index <= full, "rate"]
+    p_all = passed.sum(axis=1)
     win = (p_all.index <= full) & (p_all.index > full - pd.DateOffset(months=12))
     fit_p = passed.loc[win, org].sum().sum()
     scale = max(float(p_all[win].sum() / fit_p), 1.0) if fit_p > 0 else 1.0   # origins without a fit still add some certs
+    xpred, xscore = c.exit_backtest(mk)
+    xm = c.best_exit_method(mk)
+    frac = c.month_progress(mk)
+    use_mtd = cur > full and xscore.loc["This month so far", "miss"] < xscore.loc[xm, "miss"]
+    cur_days = c.certs_daily(mk).loc[lambda d: d.index >= cur]
+    rates = {}
+    for m in fx:
+        r0 = c.mtd_rate(cur_days, float(lvf.iloc[-1]), frac) if (m == cur and use_mtd) else c.exit_rate(xrate, m, xm)
+        rates[m] = r0 if pd.notna(r0) else c.exit_rate(xrate, m, "Recent 6m")
     L, path = float(lvf.iloc[-1]), {}
     for m in fx:
-        L = L * (1 - er) + ctot[m] * scale
+        L = L * (1 - rates[m]) + ctot[m] * scale
         path[m] = L
     res = []                                                 # one-month-ahead misses of the same rule, for the bands
     for m in exp.index:
         pm = m - pd.DateOffset(months=1)
-        if pm in lvf.index and m in lvf.index:
-            e6 = xrate[xrate.index < m].iloc[-6:].mean()
-            if pd.notna(e6):
-                res.append((m, float(lvf[pm] * (1 - e6) + exp[m] * scale), float(lvf[m])))
+        if pm in lvf.index and m in lvf.index and m in xpred.index and pd.notna(xpred.loc[m, xm]):
+            res.append((m, float(lvf[pm] * (1 - xpred.loc[m, xm]) + exp[m] * scale), float(lvf[m])))
     ex_m, ex_pred, ex_act = res[-1] if res else (None, np.nan, np.nan)      # latest tested month, for the explainer
     res = pd.Series([abs(b - a) for _, a, b in res], dtype=float)
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
+    er = float(np.mean(list(rates.values()))) if rates else 0.0
 
     now = float(lv.iloc[-1])
 
     c.bar("Certs forecast")
     with st.container(border=True, key="glow_certs"):
-        c.head("Certified stock: actual and forecast", f"Next month = this month x (1 - {er:.0%} leaving) + new certs", keep=True)
+        c.head("Certified stock: actual and forecast", f"Next month = this month x (1 - share leaving) + new certs{D}leaving: see below", keep=True)
         hx = lvf.index[lvf.index >= c.STUDY_START]
         fig = go.Figure()
         if path:
@@ -128,6 +135,40 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
 {k(w50 * np.sqrt(2))} two months out, {k(w50 * np.sqrt(n_))} at {n_} months.</div>
 <div class='ex-s'><span>4</span><b>How to read it</b>For {px_[-1]:%b-%y} the forecast is <b>{k(base[-1])}</b>. Likely <b>{k(lo1)} to {k(hi1)}</b> (dark),
 very likely <b>{k(lo2)} to {k(hi2)}</b> (light).</div></div></div>""", unsafe_allow_html=True)
+
+    with st.container(border=True):
+        c.head("Certs leaving", f"Left = last month's stock + passed - this month's stock{D}shown as % of last month's stock", keep=True)
+        left, right = st.columns([2, 1])
+        with left:
+            h0 = full - pd.DateOffset(months=35)
+            hx2 = xrate.index[xrate.index >= h0]
+            fig = go.Figure()
+            fig.add_bar(x=hx2, y=xrate[hx2], name="Actual", marker_color=c.NAVY, marker_line_width=0)
+            for meth, col, dash in [(xm, c.TEAL, "solid"), ("Seasonal", c.AMBER, "dot")]:
+                fig.add_scatter(x=hx2, y=xpred[meth].reindex(hx2), name=meth + (" (used)" if meth == xm else ""), mode="lines",
+                                line=dict(color=col, width=2, dash=dash))
+            if rates:
+                fig.add_bar(x=list(rates), y=list(rates.values()), name="Forecast", marker=dict(color="rgba(42,140,140,.25)",
+                            line=dict(color=c.TEAL, width=1.2), pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
+            c.style(fig, height=280, fmt=".0%", yaxis=dict(gridcolor=c.GRID, color=c.AXIS, tickformat=".0%"),
+                    xaxis=dict(color=c.AXIS, showgrid=False, dtick="M3", tickformat="%b-%y"))
+            c.show(fig, "nc_exit")
+        with right:
+            sc_ = xscore.sort_values("miss")
+            win_ = [xm] + (["This month so far"] if use_mtd else [])
+            fig = go.Figure()
+            fig.add_bar(y=sc_.index, x=sc_["miss"] * u, orientation="h", marker_line_width=0,
+                        marker_color=[c.TEAL if m_ in win_ else "#c9d2e6" for m_ in sc_.index],
+                        text=[f"{c.kfmt(v * u)}" for v in sc_["miss"]], textposition="outside",
+                        customdata=sc_["r"], hovertemplate="%{y}<br>avg miss %{x:,.0f}<br>r %{customdata:.2f}<extra></extra>")
+            c.style(fig, height=280, legend=False, yaxis=dict(autorange="reversed", color=c.AXIS, tickfont=dict(size=10)),
+                    xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text=f"Avg miss a month ({un}), smaller = better", font=dict(size=10))))
+            c.show(fig, "nc_exit_sc")
+        used_txt = D.join(f"{m:%b} {r0:.0%}" for m, r0 in rates.items())
+        st.markdown(f"<div class='note'>Tested on {int(xscore['n'].max())} months since {c.EXIT_TEST_FROM:%Y}{D}"
+                    f"next months use <b>{xm}</b> ({c.EXIT_METHODS[xm]})"
+                    + (f"{D}{cur:%b} uses <b>this month so far</b> ({frac:.0%} of the month done)" if use_mtd else "")
+                    + f"{D}rates used: {used_txt}</div>", unsafe_allow_html=True)
 
     left, right = st.columns([3, 2])
     with left, st.container(border=True):
