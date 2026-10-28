@@ -153,5 +153,9 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
 .explain .ex-s span { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
   background: linear-gradient(135deg, #2a8c8c, #3a5596); color: #fff; font-size: 11px; font-weight: 700; margin-bottom: 6px; }
 .explain .ex-s b { color: #0f5e5e; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+.dot.g { background: #2e9e5b; box-shadow: 0 0 6px rgba(46,158,91,.55); }
+.dot.a { background: #e0a23a; box-shadow: 0 0 6px rgba(224,162,58,.5); }
+.dot.r { background: #d1495b; box-shadow: 0 0 6px rgba(209,73,91,.5); }
 </style>
 """
