@@ -91,7 +91,8 @@ def render():
         if pm in lvf.index and m in lvf.index and m in xpred.index and pd.notna(xpred.loc[m, xm]):
             res.append((m, float(lvf[pm] * (1 - xpred.loc[m, xm]) + exp[m] * scale), float(lvf[m])))
     ex_m, ex_pred, ex_act = res[-1] if res else (None, np.nan, np.nan)      # latest tested month, for the explainer
-    res = pd.Series([abs(b - a) for _, a, b in res], dtype=float)
+    sres = pd.Series([b - a for _, a, b in res], dtype=float)  # signed: actual - forecast
+    res = sres.abs()
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
     er = float(np.mean(list(rates.values()))) if rates else 0.0
 
@@ -106,7 +107,7 @@ def render():
             px_ = [lvf.index[-1]] + list(path)
             base = np.array([float(lvf.iloc[-1])] + list(path.values()))
             h = np.sqrt(np.arange(len(px_)))                 # misses add up the further out
-            for w, shade, name in [(w80, "rgba(42,140,140,.08)", "4 in 5 past misses"), (w50, "rgba(42,140,140,.18)", "1 in 2 past misses")]:
+            for w, shade, name in [(w80, "rgba(42,140,140,.08)", "80% likely range"), (w50, "rgba(42,140,140,.18)", "50% likely range")]:
                 fig.add_scatter(x=px_, y=(base + w * h) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
                 fig.add_scatter(x=px_, y=np.clip(base - w * h, 0, None) * u, mode="lines", line=dict(width=0), fill="tonexty",
                                 fillcolor=shade, name=name, hoverinfo="skip")
@@ -120,6 +121,29 @@ def render():
             fig.add_scatter(x=[lv.index[-1]], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
         c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
         c.show(fig, "nc_level")
+        if path and len(sres) > 5:
+            # chance the stock ends above each level: past signed misses, widened by sqrt(months ahead), added to the forecast
+            n_ = len(px_) - 1
+            sims = base[-1] + sres.to_numpy() * np.sqrt(n_)
+            sims = sims[np.isfinite(sims)]
+            p10, p90 = np.percentile(sims, 10), np.percentile(sims, 90)
+            raw = max((p90 - p10) / 5, 1.0)
+            mag = 10 ** np.floor(np.log10(raw))
+            step = next(mag * k_ for k_ in (1, 2, 2.5, 5, 10) if mag * k_ >= raw)   # a round step, ~6 levels across the 10-90% range
+            lv_ = np.arange(np.floor(p10 / step) * step, p90 + step, step)
+            lv_ = lv_[lv_ > 0][:7]
+            pr_up = float((sims > now).mean())
+            probs = [float((sims > x).mean()) for x in lv_]
+            fig = go.Figure()
+            fig.add_bar(x=[f"> {c.kfmt(x * u)}" for x in lv_], y=probs, marker_line_width=0,
+                        marker_color=[f"rgba(42,140,140,{.25 + .7 * p_:.2f})" for p_ in probs],
+                        text=[f"{p_:.0%}" for p_ in probs], textposition="outside", hovertemplate="%{x}: %{y:.0%}<extra></extra>")
+            c.style(fig, height=230, legend=False, yaxis=dict(gridcolor=c.GRID, color=c.AXIS, tickformat=".0%", range=[0, 1.12]),
+                    xaxis=dict(color=c.AXIS, showgrid=False))
+            st.markdown(f"<div class='chart-head' style='margin-top:4px'>Chance stock ends {px_[-1]:%b-%y} above…</div><div class='card-desc'>"
+                        f"Chance it ends higher than today ({c.kfmt(now * u)}): <b>{pr_up:.0%}</b>{D}from {len(sres)} past forecast misses</div>",
+                        unsafe_allow_html=True)
+            c.show(fig, "nc_prob")
         if path and ex_m is not None:
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
             n_ = len(px_) - 1
@@ -130,11 +154,11 @@ def render():
 <div class='ex-s'><span>1</span><b>Test the rule on the past</b>We pretend it is the start of each past month and forecast its end.
 In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_act)}</b>: off by <b>{k(abs(ex_act - ex_pred))}</b>.</div>
 <div class='ex-s'><span>2</span><b>Line up all the misses</b>We did this for {len(res)} months. Half missed by less than <b>{k(w50)}</b>: that is the
-<b>dark band</b>. 4 in 5 missed by less than <b>{k(w80)}</b>: that is the <b>light band</b>.</div>
+<b>50% range</b> (dark). 4 in 5 missed by less than <b>{k(w80)}</b>: that is the <b>80% range</b> (light).</div>
 <div class='ex-s'><span>3</span><b>Further out, wider</b>Each month adds its own miss, so the band grows: about {k(w50)} one month out,
 {k(w50 * np.sqrt(2))} two months out, {k(w50 * np.sqrt(n_))} at {n_} months.</div>
-<div class='ex-s'><span>4</span><b>How to read it</b>For {px_[-1]:%b-%y} the forecast is <b>{k(base[-1])}</b>. Likely <b>{k(lo1)} to {k(hi1)}</b> (dark),
-very likely <b>{k(lo2)} to {k(hi2)}</b> (light).</div></div></div>""", unsafe_allow_html=True)
+<div class='ex-s'><span>4</span><b>How to read it</b>For {px_[-1]:%b-%y} the forecast is <b>{k(base[-1])}</b>. 50% chance it lands between <b>{k(lo1)} and {k(hi1)}</b>,
+80% chance between <b>{k(lo2)} and {k(hi2)}</b>.</div></div></div>""", unsafe_allow_html=True)
 
     with st.container(border=True):
         c.head("Certs leaving", f"Left = last month's stock + passed - this month's stock{D}shown as % of last month's stock", keep=True)
