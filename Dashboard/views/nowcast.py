@@ -36,9 +36,10 @@ def render():
     tot = {m: nc[m].sum(min_count=1) for m in months}
     share = c.certs_share(mk)
 
-    pr = c.pass_rate(mk)
     passed, _ = c.graded_monthly(mk)
     org = [o for o in nc["Origin"] if o in passed]
+    pw = c.best_pass_months(mk, tuple(org))        # pass-rate window with the best past match
+    pr = c.pass_rate(mk, months=pw)
 
     # ── new certs per origin = fresh pending forecast x pass rate ──
     crow, ctot = [], {m: np.nan for m in months}
@@ -57,15 +58,8 @@ def render():
     fx = [m for m in months if pd.notna(ctot[m])]
 
     # ── past check: real fresh pending x the pass rate known the month before ──
-    idx = pd.date_range(c.STUDY_START + pd.DateOffset(months=c.PASS_MONTHS), full, freq="MS")
-    exp, used = {}, {}
-    for m in idx:
-        rm = c.pass_rate(mk, m - pd.DateOffset(months=1))
-        fp_m = sum(fpm.loc[m, o] for o in org if o in fpm)
-        exp[m] = sum(fpm.loc[m, o] * float(rm.get(o, rm["_all"])) for o in org if o in fpm)
-        used[m] = exp[m] / fp_m if fp_m > 0 else float(rm["_all"])   # blended rate behind that month's estimate
-    exp, used = pd.Series(exp, dtype=float), pd.Series(used, dtype=float)
-    act = passed.reindex(idx)[org].sum(axis=1)
+    chk = c.pass_check(mk, tuple(org), pw)
+    idx, exp, used, act = chk.index, chk["Exp"], chk["Used"], chk["Act"]
     ok = act.notna() & exp.notna()
     r_ = float(np.corrcoef(act[ok], exp[ok])[0, 1]) if ok.sum() > 3 else np.nan
 
@@ -154,7 +148,7 @@ very likely <b>{k(lo2)} to {k(hi2)}</b> (light).</div></div></div>""", unsafe_al
         c.show(fig, "nc_certs_fc")
 
     with st.container(border=True):
-        c.head("Does pass rate work?", f"Real fresh pending x pass rate vs actual passed{D}rate = last {c.PASS_MONTHS} months before each month", keep=True)
+        c.head("Does pass rate work?", f"Real fresh pending x pass rate vs actual passed{D}rate = last {pw} months before each month", keep=True)
         left, right = st.columns([2, 1])
         with left:
             fig = go.Figure()
@@ -178,6 +172,17 @@ very likely <b>{k(lo2)} to {k(hi2)}</b> (light).</div></div></div>""", unsafe_al
                     xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text="Fresh pending x pass rate", font=dict(size=10))),
                     yaxis=dict(gridcolor=c.GRID, color=c.AXIS, title=dict(text="Actual passed", font=dict(size=10))))
             c.show(sc, "nc_certs_sc")
+        sc_ = c.pass_window_scores(mk, tuple(org))
+        fig = go.Figure()
+        fig.add_bar(x=sc_["months"], y=sc_["r"], marker_color=[c.TEAL if n == pw else "#c9d2e6" for n in sc_["months"]], marker_line_width=0,
+                    text=[f"{v:.2f}" for v in sc_["r"]], textposition="outside", customdata=sc_["miss"] * u,
+                    hovertemplate="%{x}-month pass rate<br>r %{y:.2f}<br>avg miss %{customdata:,.0f}<extra></extra>", name="r")
+        lo_r = float(sc_["r"].min())
+        c.style(fig, height=230, legend=False, fmt=".2f", xaxis=dict(color=c.AXIS, showgrid=False, dtick=1, title=dict(text="Pass rate over the last N months", font=dict(size=10))),
+                yaxis=dict(gridcolor=c.GRID, color=c.AXIS, range=[max(lo_r - .05, 0), 1], title=dict(text="Correlation (r)", font=dict(size=10))))
+        st.markdown(f"<div class='chart-head' style='margin-top:6px'>Which pass-rate window predicts best?</div><div class='card-desc'>"
+                    f"Same check for every window{D}highest bar = used: <b>{pw} months</b></div>", unsafe_allow_html=True)
+        c.show(fig, "nc_pw")
         if ok.sum() > 3:
             st.markdown(f"<div class='note'>r {r_:.2f}{D}R² {r_ ** 2:.2f}{D}avg miss {c.kfmt((act[ok] - exp[ok]).abs().mean() * u)} {un} a month"
                         f"{D}pass rate now {pr['_all']:.0%}</div>", unsafe_allow_html=True)

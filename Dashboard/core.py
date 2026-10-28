@@ -210,7 +210,7 @@ def certs_share(mk: str) -> pd.Series:
     return (last / last.sum()).sort_values(ascending=False) if last.sum() > 0 else last
 
 
-PASS_MONTHS = 12      # trailing full months behind each pass rate
+PASS_MONTHS = 12      # longest trailing window tried; also the warm-up before the pass-rate check starts
 PASS_MIN_BAGS = 3000  # an origin graded less than this over the window takes the market-wide rate
 
 
@@ -232,18 +232,51 @@ def certs_level(mk: str) -> pd.Series:
     return day.groupby(day.index.to_period("M").to_timestamp()).last()
 
 
-def pass_rate(mk: str, asof: pd.Timestamp = None) -> pd.Series:
-    """Per origin: passed / (passed + failed) over the PASS_MONTHS full months up to `asof` (default: last full month).
+def pass_rate(mk: str, asof: pd.Timestamp = None, months: int = PASS_MONTHS) -> pd.Series:
+    """Per origin: passed / (passed + failed) over the `months` full months up to `asof` (default: last full month).
     Thinly graded origins fall back to the market-wide rate; '_all' holds that rate."""
     p, f = graded_monthly(mk)
     asof = asof if asof is not None else last_full_month()
-    win = (p.index <= asof) & (p.index > asof - pd.DateOffset(months=PASS_MONTHS))
+    win = (p.index <= asof) & (p.index > asof - pd.DateOffset(months=months))
     ps, fs = p[win].sum(), f[win].sum()
     tot = ps + fs
     allr = float(ps.sum() / tot.sum()) if tot.sum() > 0 else np.nan
     r = (ps / tot.where(tot > 0)).where(tot >= PASS_MIN_BAGS, allr)
     r["_all"] = allr
     return r
+
+
+@st.cache_data(ttl=600)
+def pass_check(mk: str, origins: tuple, months: int) -> pd.DataFrame:
+    """Each past month: real fresh pending x the `months`-month pass rate known the month before (Exp), the blended rate behind
+    it (Used), and bags actually passed (Act). Starts PASS_MONTHS after STUDY_START so every window is scored on the same months."""
+    fpm = fp_monthly(mk)
+    passed, _ = graded_monthly(mk)
+    org = [o for o in origins if o in fpm and o in passed]
+    idx = pd.date_range(STUDY_START + pd.DateOffset(months=PASS_MONTHS), last_full_month(), freq="MS")
+    rows = []
+    for m in idx:
+        rm = pass_rate(mk, m - pd.DateOffset(months=1), months)
+        fp_m = float(fpm.loc[m, org].sum())
+        e = sum(fpm.loc[m, o] * float(rm.get(o, rm["_all"])) for o in org)
+        rows.append(dict(Month=m, Exp=e, Used=e / fp_m if fp_m > 0 else float(rm["_all"]), Act=float(passed.loc[m, org].sum())))
+    return pd.DataFrame(rows).set_index("Month")
+
+
+@st.cache_data(ttl=600)
+def pass_window_scores(mk: str, origins: tuple) -> pd.DataFrame:
+    """How well each pass-rate window (1..PASS_MONTHS months) predicts bags passed: correlation and average miss."""
+    rows = []
+    for n in range(1, PASS_MONTHS + 1):
+        t = pass_check(mk, origins, n).dropna()
+        r = float(np.corrcoef(t["Act"], t["Exp"])[0, 1]) if len(t) > 3 else np.nan
+        rows.append(dict(months=n, r=r, miss=float((t["Act"] - t["Exp"]).abs().mean())))
+    return pd.DataFrame(rows)
+
+
+def best_pass_months(mk: str, origins: tuple) -> int:
+    s = pass_window_scores(mk, origins).dropna(subset=["r"])
+    return int(s.loc[s["r"].idxmax(), "months"]) if not s.empty else PASS_MONTHS
 
 
 @st.cache_data(ttl=600)
