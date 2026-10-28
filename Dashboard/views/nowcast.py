@@ -42,11 +42,12 @@ def render():
     pr = c.pass_rate(mk, months=pw)
 
     # ── new certs per origin = fresh pending forecast x pass rate ──
-    crow, ctot = [], {m: np.nan for m in months}
+    crow, ctot, new_o = [], {m: np.nan for m in months}, {}
     for _, r in nc.iterrows():
         o = r["Origin"]
         rate = float(pr.get(o, pr["_all"]))
         vals = [r[m] * rate if pd.notna(r[m]) else np.nan for m in months]
+        new_o[o] = dict(zip(months, vals))
         for m, v in zip(months, vals):
             if pd.notna(v):
                 ctot[m] = (0.0 if pd.isna(ctot[m]) else ctot[m]) + v
@@ -101,6 +102,7 @@ def render():
             nf = sum(float(f.get(m, np.nan)) * float(rm.get(o, rm["_all"])) for o, f in fits.items())
             if pd.notna(nf):
                 res.append((m, float(lvf[pm] * (1 - xpred.loc[m, xm]) + nf * scale), float(lvf[m])))
+    resl = list(res)                                         # (month, forecast a month before, actual)
     ex_m, ex_pred, ex_act = res[-1] if res else (None, np.nan, np.nan)      # latest tested month, for the explainer
     res = pd.Series([abs(b - a) for _, a, b in res], dtype=float)
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
@@ -110,27 +112,80 @@ def render():
 
     c.bar("Certs forecast")
     with st.container(border=True, key="glow_certs"):
-        c.head("Certified stock: actual and forecast")
-        hx = lvf.index[lvf.index >= c.STUDY_START]
+        hl, hr = st.columns([4, 1], vertical_alignment="center")
+        with hl:
+            c.head("Certified stock: actual and forecast", "Shaded = KC delivery months · hover for start + new - leaving = end", keep=True)
+        with hr:
+            since = st.radio("From", ["Since 2015", "Since 2023"], horizontal=True, key="nc_from", label_visibility="collapsed")
+        start = pd.Timestamp("2015-01-01") if since == "Since 2015" else c.STUDY_START
+        me = lambda ix: pd.DatetimeIndex(ix) + pd.offsets.MonthEnd(0)   # noqa: E731  a month's stock is plotted at its month end
+        hx = lvf.index[lvf.index >= start]
         fig = go.Figure()
+        for y in range(start.year, (fx[-1] if fx else full).year + 1):            # KC delivery months
+            for mo in (3, 5, 7, 9, 12):
+                m0 = pd.Timestamp(y, mo, 1)
+                if start <= m0 <= (fx[-1] if fx else full):
+                    fig.add_vrect(x0=m0, x1=m0 + pd.offsets.MonthEnd(0), fillcolor="rgba(176,141,87,.10)", line_width=0, layer="below")
         if path:
             px_ = [lvf.index[-1]] + list(path)
             base = np.array([float(lvf.iloc[-1])] + list(path.values()))
             h = np.sqrt(np.arange(len(px_)))                 # misses add up the further out
             for w, shade, name in [(w80, "rgba(42,140,140,.08)", "80% likely range"), (w50, "rgba(42,140,140,.18)", "50% likely range")]:
-                fig.add_scatter(x=px_, y=(base + w * h) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
-                fig.add_scatter(x=px_, y=np.clip(base - w * h, 0, None) * u, mode="lines", line=dict(width=0), fill="tonexty",
+                fig.add_scatter(x=me(px_), y=(base + w * h) * u, mode="lines", line=dict(width=0), hoverinfo="skip", showlegend=False)
+                fig.add_scatter(x=me(px_), y=np.clip(base - w * h, 0, None) * u, mode="lines", line=dict(width=0), fill="tonexty",
                                 fillcolor=shade, name=name, hoverinfo="skip")
-        fig.add_scatter(x=hx, y=lvf[hx] * u, name="Actual", mode="lines", line=dict(color=c.NAVY, width=2.5))
+        e_ = em.reindex(hx)
+        fig.add_scatter(x=me(hx), y=lvf[hx] * u, name="Actual", mode="lines", line=dict(color=c.NAVY, width=2.5),
+                        customdata=np.c_[e_["L0"], e_["P"], e_["X"]] * u,
+                        hovertemplate="Actual %{y:,.0f}<br>start %{customdata[0]:,.0f} + passed %{customdata[1]:,.0f} - left %{customdata[2]:,.0f}<extra></extra>")
+        past = [(m, a) for m, a, _ in resl if m >= start]
+        if past:
+            fig.add_scatter(x=me([m for m, _ in past]), y=[a * u for _, a in past], name="Past 1-month forecasts", mode="markers",
+                            marker=dict(symbol="circle-open", size=8, color=c.TEAL, line=dict(width=1.6)),
+                            hovertemplate="Forecast a month before %{y:,.0f}<extra></extra>")
         if path:
-            fig.add_scatter(x=px_, y=base * u, name="Forecast", mode="lines+markers", line=dict(color=c.TEAL, width=2.5, dash="dash"),
-                            marker=dict(size=7))
-            fig.add_annotation(x=px_[-1], y=base[-1] * u, text=f"<b>{c.kfmt(base[-1] * u)}</b>", showarrow=False, xanchor="left", xshift=8,
+            cd_ = [[np.nan] * 3] + [[base[i], adds[m], base[i] * rates[m]] for i, m in enumerate(path)]
+            fig.add_scatter(x=me(px_), y=base * u, name="Forecast", mode="lines+markers", line=dict(color=c.TEAL, width=2.5, dash="dash"),
+                            marker=dict(size=7), customdata=np.array(cd_, dtype=float) * u,
+                            hovertemplate="Forecast %{y:,.0f}<br>start %{customdata[0]:,.0f} + new %{customdata[1]:,.0f} - leaving %{customdata[2]:,.0f}<extra></extra>")
+            fig.add_annotation(x=me([px_[-1]])[0], y=base[-1] * u, text=f"<b>{c.kfmt(base[-1] * u)}</b>", showarrow=False, xanchor="left", xshift=8,
                                font=dict(color=c.TEAL, size=12))
         if lv.index[-1] > full:
-            fig.add_scatter(x=[lv.index[-1]], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
-        c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
+            fig.add_scatter(x=[c.certs_daily(mk).index.max()], y=[now * u], name="Today", mode="markers",
+                            marker=dict(symbol="diamond", size=11, color=c.AMBER), hovertemplate="Today %{y:,.0f}<extra></extra>")
+        c.style(fig, height=380, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M6" if since == "Since 2015" else "M2", tickformat="%b-%y"))
         c.show(fig, "nc_level")
+
+        # ── by origin: stock per origin (ICE report), same leaving % for every origin ──
+        g = c.port_daily(mk)
+        g = g[g["Date"] <= full + pd.offsets.MonthEnd(0)]
+        last_day = g.groupby(g["Date"].dt.to_period("M"))["Date"].max()
+        so = g[g["Date"].isin(last_day)].groupby([g["Date"].dt.to_period("M").dt.to_timestamp(), "Origin"])["Certs"].sum().unstack().fillna(0.0)
+        if not so.empty and path:
+            top = list(so.iloc[-1].sort_values(ascending=False).index[:4])
+            hist_o = so[top].assign(Rest=so.drop(columns=top).sum(axis=1))
+            S = hist_o.iloc[-1].astype(float).to_dict()
+            fc_o = {k_: [S[k_]] for k_ in S}
+            for m in path:
+                add = {o: (float(passed.loc[cur, o]) if (m == cur and use_mtd and o in passed) else 0.0)
+                       + (1 - frac if (m == cur and use_mtd) else 1.0) * float(new_o.get(o, {}).get(m, 0.0) or 0.0) for o in top}
+                add["Rest"] = max(adds[m] - sum(add.values()), 0.0)
+                for k_ in S:
+                    S[k_] = S[k_] * (1 - rates[m]) + add[k_]
+                    fc_o[k_].append(S[k_])
+            fig = go.Figure()
+            cols = [c.NAVY, c.TEAL, c.AMBER, "#6b7fb8", "#b9c3de"]
+            fade = lambda h_: "rgba({},{},{},.4)".format(*(int(h_[j:j + 2], 16) for j in (1, 3, 5)))   # noqa: E731
+            for i, k_ in enumerate(hist_o.columns):
+                fig.add_scatter(x=me(hist_o.index), y=hist_o[k_] * u, name=k_, mode="lines", stackgroup="a", line=dict(width=0.5, color=cols[i]),
+                                fillcolor=cols[i], legendgroup=k_)
+                fig.add_scatter(x=me(px_), y=np.array(fc_o[k_]) * u, name=k_, mode="lines", stackgroup="f", showlegend=False, legendgroup=k_,
+                                line=dict(width=1, color=cols[i], dash="dash"), fillcolor=fade(cols[i]),
+                                hovertemplate=f"{k_} forecast %{{y:,.0f}}<extra></extra>")
+            st.markdown("<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Faded = forecast"
+                        f"{D}same leaving % for every origin{D}ICE report, from {c.STUDY_START:%b-%y}</div>", unsafe_allow_html=True)
+            c.style(fig, height=300, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
+            c.show(fig, "nc_level_o")
         if path and ex_m is not None:
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
             n_ = len(px_) - 1
