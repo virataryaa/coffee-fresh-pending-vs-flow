@@ -212,8 +212,7 @@ def render():
             fig.add_scatter(x=me(tot_x), y=np.array(tot_y) * u, name="Total", mode="lines+markers+text", line=dict(color=c.NAVY, width=2, dash="dot"),
                             marker=dict(size=6, color=c.NAVY), text=[""] + [c.kfmt(v * u) for v in tot_y[1:]], textposition="top center",
                             textfont=dict(size=10, color=c.NAVY), hovertemplate="Total %{y:,.0f}<extra></extra>")
-            st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month"
-                        f"{D}bars = forecast, darkest = this month{D}ICE report, from {c.STUDY_START:%b-%y}</div>",
+            st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month</div>",
                         unsafe_allow_html=True)
             c.style(fig, height=320, barmode="stack", xaxis=xax)
             c.show(fig, "nc_level_o")
