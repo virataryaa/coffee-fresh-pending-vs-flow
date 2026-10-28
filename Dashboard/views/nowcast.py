@@ -127,7 +127,13 @@ def render():
         step_m = {"M1": 1, "M2": 2, "M3": 3}.get(dtick, 12)
         all_m = pd.date_range(start, end_m, freq="MS")
         tv = list(all_m[::-1][::step_m][::-1])
-        tt = [f"{t:%b-%y}" + ("*" if t in fx else "") for t in tv]
+        def tlabel(t):                                       # past grey · this month bold violet · ahead italic teal
+            if fx and t == fx[0]:
+                return f"<b><span style='color:#6a3d9a'>{t:%b-%y}</span></b>"
+            if t in fx:
+                return f"<i><span style='color:#2a8c8c'>{t:%b-%y}</span></i>"
+            return f"<span style='color:#8a94a6'>{t:%b-%y}</span>"
+        tt = [tlabel(t) for t in tv]
         xax = dict(color=c.AXIS, showgrid=False, tickvals=tv, ticktext=tt, hoverformat="End of %b-%y",
                    range=[start - pd.Timedelta(days=16), end_m + pd.Timedelta(days=16)])
         fig = go.Figure()
@@ -207,48 +213,52 @@ def render():
                 fig.add_scatter(x=me(hist_o.index), y=hist_o[k_] * u, name=k_, mode="lines", stackgroup="o", legendgroup=k_,
                                 line=dict(width=2, color=line_c[i]), fillcolor=rgb(line_c[i], .32),
                                 hovertemplate=f"{k_} %{{y:,.0f}}<extra></extra>")
-            kf = lambda v: c.kfmt(v * u) if pd.notna(v) else "-"   # noqa: E731
+            kf = lambda v: c.kfmt(v * u) if pd.notna(v) else "–"   # noqa: E731
 
             def card(m):
-                """Hover card for a forecast month: one row per origin, then the total."""
-                rows_ = [f"<b>{m:%b-%y} forecast</b>  <span style='color:#6b7391'>stock at month end, {un}</span>", "",
-                         "<span style='color:#6b7391'>{:<10}{:>8}{:>9}{:>6}{:>8}{:>12}{:>8}</span>".format(
-                             "", "start", "fresh p.", "pass", "+ new", "- leaving", "= end")]
-                for i_, k2 in enumerate(det[m]):
-                    s0, fp_, pr_, nw, lr, lf, e1 = det[m][k2]
-                    row = "{:<8}{:>8}{:>9}{:>6}{:>8}{:>12}{:>8}".format(
-                        k2[:8], kf(s0), kf(fp_), f"{pr_:.0%}" if pd.notna(pr_) else "-", "+" + kf(nw), f"-{kf(lf)} {lr:.0%}", kf(e1))
-                    rows_.append(f"<span style='color:{line_c[i_]}'>●</span> {row[:-8]}<b>{row[-8:]}</b>")   # bold the end column
-                t0, tn, tl, te = (sum(v[j] for v in det[m].values()) for j in (0, 3, 5, 6))
-                rows_ += ["", "<b>{:<10}{:>8}{:>9}{:>6}{:>8}{:>12}{:>8}</b>".format("Total", kf(t0), "", "", "+" + kf(tn), "-" + kf(tl), kf(te))]
-                if m == cur and use_mtd:
-                    rows_.append(f"<span style='color:#6b7391'>{m:%b} new = passed so far + forecast for the rest ({1 - frac:.0%} of the month)</span>")
-                return "<br>".join(rows_)
+                """Breakdown card for a forecast month: one row per origin, subtle heat on new certs, leaving and the change."""
+                d_ = det[m]
+                mx_new = max([v[3] for v in d_.values()] + [1.0])
+                mx_lr = max([v[4] for v in d_.values()] + [1e-9])
+                rows_ = ""
+                for i_, (k2, (s0, fp_, pr_, nw, lr, lf, e1)) in enumerate(d_.items()):
+                    ch = e1 / s0 - 1 if s0 > 0 else np.nan
+                    chc = "#2e8b57" if ch >= 0 else "#b0413e"
+                    rows_ += (f"<tr><td class='o'><span class='dot' style='background:{line_c[i_]}'></span>{k2}</td>"
+                              f"<td>{kf(s0)}</td><td>{kf(fp_)}</td>"
+                              f"<td>{f'{pr_:.0%}' if pd.notna(pr_) else '–'}</td>"
+                              f"<td style='background:rgba(46,139,87,{.05 + .25 * nw / mx_new:.2f})'>+{kf(nw)}</td>"
+                              f"<td style='background:rgba(176,65,62,{.05 + .22 * lr / mx_lr:.2f})'>−{kf(lf)} <em>{lr:.0%}</em></td>"
+                              f"<td class='e'>{kf(e1)}</td>"
+                              f"<td style='color:{chc}'>{'▲' if ch >= 0 else '▼'} {abs(ch):.0%}</td></tr>")
+                t0, tn, tl, te = (sum(v[j] for v in d_.values()) for j in (0, 3, 5, 6))
+                tch = te / t0 - 1 if t0 > 0 else np.nan
+                rows_ += (f"<tr class='t'><td class='o'>Total</td><td>{kf(t0)}</td><td></td><td></td><td>+{kf(tn)}</td><td>−{kf(tl)}</td>"
+                          f"<td class='e'>{kf(te)}</td><td style='color:{'#2e8b57' if tch >= 0 else '#b0413e'}'>"
+                          f"{'▲' if tch >= 0 else '▼'} {abs(tch):.0%}</td></tr>")
+                note = (f"<div class='bk-n'>{m:%b} new certs = passed so far + forecast for the rest of the month ({1 - frac:.0%} to go)</div>"
+                        if m == cur and use_mtd else "")
+                return (f"<div class='bk'><div class='bk-h'><b>{m:%b-%y}</b> forecast<span>stock at month end · {un}</span></div>"
+                        "<table><thead><tr><th class='o'>Origin</th><th>Start</th><th>Fresh pending</th><th>Pass</th><th>+ New certs</th>"
+                        f"<th>− Leaving</th><th>= End</th><th>Change</th></tr></thead><tbody>{rows_}</tbody></table>{note}</div>")
 
-            cards = [card(m) for m in fm]
-            for i, k_ in enumerate(hist_o.columns):            # forecast: stacked bars, the coming month strongest
+            for i, k_ in enumerate(hist_o.columns):            # forecast: stacked bars, one shade
                 fig.add_bar(x=me(fm), y=np.array(fc_o[k_]) * u, name=k_, showlegend=False, legendgroup=k_, width=18 * 86400000,
-                            marker=dict(color=rgb(line_c[i], .8),
-                                        line=dict(color="#ffffff", width=1)),
-                            customdata=cards, hovertemplate="%{customdata}<extra></extra>")
+                            marker=dict(color=rgb(line_c[i], .8), line=dict(color="#ffffff", width=1)),
+                            hovertemplate=f"{k_} %{{y:,.0f}} (forecast)<extra></extra>")
             tot_x = [hist_o.index[-1]] + fm if len(hist_o) else fm
             tot_y = ([float(hist_o.iloc[-1].sum())] if len(hist_o) else []) + [sum(fc_o[k_][j] for k_ in fc_o) for j in range(len(fm))]
             fig.add_scatter(x=me(tot_x), y=np.array(tot_y) * u, name="Total", mode="lines+markers+text", line=dict(color=c.NAVY, width=2, dash="dot"),
-                            marker=dict(size=6, color=c.NAVY), text=["", ""] + [c.kfmt(v * u) for v in tot_y[2:]], textposition="top center",
+                            marker=dict(size=6, color=c.NAVY), text=[""] + [c.kfmt(v * u) for v in tot_y[1:]], textposition="top center",
                             textfont=dict(size=10, color=c.NAVY), hovertemplate="Total %{y:,.0f}<extra></extra>")
-            st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month</div>",
+            st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end</div>",
                         unsafe_allow_html=True)
-            if fm:                                               # the month to watch: bold outline + label
-                hi = "#7b3fa0"
-                top_ = tot_y[1] if len(hist_o) else tot_y[0]
-                fig.add_shape(type="rect", x0=fm[0] - pd.Timedelta(days=10), x1=fm[0] + pd.Timedelta(days=10), y0=0, y1=top_ * u,
-                              line=dict(color=hi, width=3), fillcolor="rgba(0,0,0,0)", layer="above")
-                fig.add_annotation(x=fm[0], y=top_ * u, text=f"<b>{fm[0]:%b-%y}: {c.kfmt(top_ * u)}</b>", showarrow=False, yshift=26,
-                                   font=dict(color="#ffffff", size=11), bgcolor=hi, borderpad=4)
-            c.style(fig, height=340, barmode="stack", xaxis=xax, hovermode="closest",
-                    hoverlabel=dict(bgcolor="rgba(255,255,255,.98)", bordercolor="rgba(43,74,138,.25)", align="left",
-                                    font=dict(family="JetBrains Mono, Consolas, Menlo, monospace", size=11, color="#1d1d1f")))
+            c.style(fig, height=320, barmode="stack", xaxis=xax, hovermode="closest")
             c.show(fig, "nc_level_o")
+            if fm:
+                pick = st.radio("Breakdown for", fm, horizontal=True, key="nc_bk", label_visibility="collapsed",
+                                format_func=lambda m: f"{m:%b-%y}" + (" · this month" if m == fm[0] else ""))
+                st.markdown(card(pick), unsafe_allow_html=True)
             st.session_state[f"origin_rates_{mk}"] = {k_: (float(own[k_]) if pd.notna(own.get(k_)) else None) for k_ in Lo.columns}
         if path and ex_m is not None:
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
