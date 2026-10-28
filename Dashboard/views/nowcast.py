@@ -163,7 +163,9 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
                         text=[f"{c.kfmt(v * u)}" for v in sc_["miss"]], textposition="outside",
                         customdata=sc_["r"], hovertemplate="%{y}<br>avg miss %{x:,.0f}<br>r %{customdata:.2f}<extra></extra>")
             c.style(fig, height=280, legend=False, yaxis=dict(autorange="reversed", color=c.AXIS, tickfont=dict(size=10)),
-                    xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text=f"Avg miss a month ({un}), smaller = better", font=dict(size=10))))
+                    xaxis=dict(color=c.AXIS, showgrid=False, range=[0, float(sc_["miss"].max()) * u * 1.18],
+                               title=dict(text=f"Avg miss a month ({un}), smaller = better", font=dict(size=10))))
+            st.markdown("<div class='chart-head' style='text-align:center'>Method comparison</div>", unsafe_allow_html=True)
             c.show(fig, "nc_exit_sc")
         with st.expander("How certs leaving works", expanded=False):
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
