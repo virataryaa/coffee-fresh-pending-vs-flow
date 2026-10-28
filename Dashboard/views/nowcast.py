@@ -177,8 +177,19 @@ def render():
         fig.add_scatter(x=idx, y=used, name="Pass rate used", mode="lines", yaxis="y2", line=dict(color=c.AMBER, width=1.5, dash="dot"),
                         hovertemplate="%{y:.0%}")
         c.style(fig, height=300, y2=dict(tickformat=".0%", range=[0, 1]), xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
-        c.show(fig, "nc_certs")
         ok = act.notna() & exp.notna()
+        left, right = st.columns([2, 1])
+        with left:
+            c.show(fig, "nc_certs")
+        with right:
+            top = float(max(act[ok].max(), exp[ok].max())) * u * 1.05 if ok.any() else 1.0
+            sc = go.Figure()
+            sc.add_scatter(x=[0, top], y=[0, top], mode="lines", name="Perfect match", line=dict(color=c.AXIS, width=1, dash="dash"), hoverinfo="skip")
+            sc.add_scatter(x=exp[ok] * u, y=act[ok] * u, mode="markers", name="Month", text=[f"{m:%b-%y}" for m in exp[ok].index],
+                           marker=dict(color=c.NAVY, size=8, opacity=.8), hovertemplate="%{text}<br>Expected %{x:,.0f}<br>Actual %{y:,.0f}<extra></extra>")
+            c.style(sc, height=300, hovermode="closest", xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text="Fresh pending x pass rate", font=dict(size=10))),
+                    yaxis=dict(gridcolor=c.GRID, color=c.AXIS, title=dict(text="Actual passed", font=dict(size=10))))
+            c.show(sc, "nc_certs_sc")
         if ok.sum() > 3:
             st.markdown(f"<div class='note'>Match r {np.corrcoef(act[ok], exp[ok])[0, 1]:.2f}{D}avg miss {c.kfmt((act[ok] - exp[ok]).abs().mean() * u)} {un} a month"
                         f"{D}pass rate now {pr['_all']:.0%}</div>", unsafe_allow_html=True)
