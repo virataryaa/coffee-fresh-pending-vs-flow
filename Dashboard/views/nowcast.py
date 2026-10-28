@@ -157,7 +157,8 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
             sc_ = xscore.sort_values("miss")
             win_ = [xm] + (["This month so far"] if use_mtd else [])
             fig = go.Figure()
-            fig.add_bar(y=sc_.index, x=sc_["miss"] * u, orientation="h", marker_line_width=0,
+            fig.add_bar(y=["This month so far,<br>scaled to full month" if m_ == "This month so far" else m_ for m_ in sc_.index],
+                        x=sc_["miss"] * u, orientation="h", marker_line_width=0,
                         marker_color=[c.TEAL if m_ in win_ else "#c9d2e6" for m_ in sc_.index],
                         text=[f"{c.kfmt(v * u)}" for v in sc_["miss"]], textposition="outside",
                         customdata=sc_["r"], hovertemplate="%{y}<br>avg miss %{x:,.0f}<br>r %{customdata:.2f}<extra></extra>")
@@ -174,16 +175,16 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
                 x_so_far = float(lvf.iloc[-1] + cur_days["Passed"].sum() - cur_days["Certs"].iloc[-1])
                 mtd_txt = (f"<div class='ex-s'><span>3</span><b>This month: use what has already left</b>{cur:%b} started at <b>{k(lvf.iloc[-1])}</b>. "
                            f"So far <b>{k(x_so_far)}</b> has left ({x_so_far / float(lvf.iloc[-1]):.0%}) with {frac:.0%} of the month done, "
-                           f"so the full month is about <b>{rates.get(cur, np.nan):.0%}</b>.</div>")
+                           f"We scale that up to a full month: {x_so_far / float(lvf.iloc[-1]):.0%} / {frac:.0%} = <b>{rates.get(cur, np.nan):.0%}</b>.</div>")
             st.markdown(f"""<div class='explain'><div class='ex-f'>Certs leaving = last month's stock + passed - this month's stock</div><div class='ex-g'>
 <div class='ex-s'><span>1</span><b>Measure what left</b>{full:%b-%y} started at <b>{k(lm['L0'])}</b>, <b>{k(lm['P'])}</b> passed grading and it ended at
-<b>{k(lm['L'])}</b>. So <b>{k(lm['X'])}</b> left: <b>{lm['rate']:.0%}</b> of the stock. This covers decerts, deliveries and transfers.</div>
+<b>{k(lm['L'])}</b>. So <b>{k(lm['X'])}</b> left: <b>{lm['rate']:.0%}</b> of the stock.</div>
 <div class='ex-s'><span>2</span><b>Next months: last 6 months' average</b>{' · '.join(f"{m:%b} {v:.0%}" for m, v in last6.items())}.
 Average <b>{last6.mean():.0%}</b> a month, used for every month after this one.</div>
 {mtd_txt}
 <div class='ex-s'><span>{4 if mtd_txt else 3}</span><b>Why this way</b>We tested every month since {c.EXIT_TEST_FROM:%Y} ({int(xscore['n'].max())} months).
 Avg miss: recent 6m <b>{k(sc_t['Recent 6m'])}</b>, seasonal {k(sc_t['Seasonal'])}, blend {k(sc_t['Blend'])},
-this month so far <b>{k(sc_t['This month so far'])}</b>. Simplest that works wins.</div></div></div>""", unsafe_allow_html=True)
+this month so far, scaled to a full month, <b>{k(sc_t['This month so far'])}</b>. Simplest that works wins.</div></div></div>""", unsafe_allow_html=True)
 
     left, right = st.columns([3, 2])
     with left, st.container(border=True):
