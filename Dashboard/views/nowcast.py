@@ -124,3 +124,41 @@ def render():
         if ok.sum() > 3:
             st.markdown(f"<div class='note'>r {np.corrcoef(a[ok], e[ok])[0, 1]:.2f} · avg miss {c.kfmt((a[ok] - e[ok]).abs().mean() * u)} {un} per {per} "
                         f"· avg actual {c.kfmt(a[ok].mean() * u)} · dark band ±{c.kfmt(w25 * u)} · light band ±{c.kfmt(w50 * u)}</div>", unsafe_allow_html=True)
+
+    with st.container(border=True):
+        c.head("Certs forecast", f"Certs = forecast fresh pending x pass rate{D}pass rate = passed / graded over the last {c.PASS_MONTHS} full months"
+                                 f"{D}origins graded under {c.kfmt(c.PASS_MIN_BAGS * u)} {un} take the market rate")
+        pr = c.pass_rate(mk)
+        passed, _ = c.graded_monthly(mk)
+        rows, ctot = [], {m: np.nan for m in months}
+        for _, r in nc.iterrows():
+            o, rate = r["Origin"], float(pr.get(o, pr["_all"]))
+            vals = [r[m] * rate if pd.notna(r[m]) else np.nan for m in months]
+            for m, v in zip(months, vals):
+                if pd.notna(v):
+                    ctot[m] = (0.0 if pd.isna(ctot[m]) else ctot[m]) + v
+            got = float(passed.loc[cur, o]) if o in passed and cur in passed.index else 0.0
+            rows.append((o, [f"{rate:.0%}"] + [(f"~{c.kfmt(v * u)}", "fill") if pd.notna(v) and m in r["filled"] else
+                                                (c.kfmt(v * u), "b" if m == cur else "") if pd.notna(v) else ("", "mut")
+                                                for m, v in zip(months, vals)] + [c.kfmt(got * u)], ""))
+        got_tot = float(passed.loc[cur, nc["Origin"]].sum()) if cur in passed.index else 0.0
+        rows.append(("Total", [f"{pr['_all']:.0%}"] + [c.kfmt(ctot[m] * u) if pd.notna(ctot[m]) else "" for m in months]
+                     + [c.kfmt(got_tot * u)], "tot"))
+        c.table(["Pass rate"] + [f"Certs {m:%b-%y}" for m in months] + [f"Passed MTD {cur:%b}"], rows, corner="Origin")
+
+        # backtest the pass-rate step alone: actual fresh pending x the rate known at the end of the prior month vs actual passed
+        idx = pd.date_range(c.STUDY_START + pd.DateOffset(months=c.PASS_MONTHS), full, freq="MS")
+        org = list(nc["Origin"])
+        exp = pd.Series({m: sum(fpm.loc[m, o] * float(c.pass_rate(mk, m - pd.DateOffset(months=1)).get(o, np.nan) or 0.0)
+                                for o in org if o in fpm) for m in idx})
+        act = passed.reindex(idx)[[o for o in org if o in passed]].sum(axis=1)
+        fig = go.Figure()
+        fig.add_bar(x=idx, y=act * u, name="Actual passed", marker_color=c.NAVY, marker_line_width=0)
+        fig.add_scatter(x=idx, y=exp * u, name="Fresh pending x pass rate", mode="lines", line=dict(color=c.TEAL, width=2))
+        c.style(fig, height=300, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
+        c.show(fig, "nc_certs")
+        ok = act.notna() & exp.notna()
+        if ok.sum() > 3:
+            st.markdown(f"<div class='note'>Pass-rate step on actual fresh pending: r {np.corrcoef(act[ok], exp[ok])[0, 1]:.2f} · avg miss "
+                        f"{c.kfmt((act[ok] - exp[ok]).abs().mean() * u)} {un} per month · avg actual {c.kfmt(act[ok].mean() * u)}"
+                        f"{D}grading lags arrival, so single months are noisy</div>", unsafe_allow_html=True)

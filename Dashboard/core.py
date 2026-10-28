@@ -210,6 +210,33 @@ def certs_share(mk: str) -> pd.Series:
     return (last / last.sum()).sort_values(ascending=False) if last.sum() > 0 else last
 
 
+PASS_MONTHS = 12      # trailing full months behind each pass rate
+PASS_MIN_BAGS = 3000  # an origin graded less than this over the window takes the market-wide rate
+
+
+@st.cache_data(ttl=600)
+def graded_monthly(mk: str) -> tuple:
+    """Month x Origin bags passed and failed at the market's ports. Passed = new certs graded that month."""
+    d = port_daily(mk)
+    g = d.groupby([d["Date"].dt.to_period("M").dt.to_timestamp(), "Origin"])[["Passed", "Failed"]].sum()
+    idx = pd.date_range(STUDY_START, g.index.get_level_values(0).max(), freq="MS")
+    return tuple(g[c_].unstack().fillna(0.0).reindex(idx, fill_value=0.0) for c_ in ("Passed", "Failed"))
+
+
+def pass_rate(mk: str, asof: pd.Timestamp = None) -> pd.Series:
+    """Per origin: passed / (passed + failed) over the PASS_MONTHS full months up to `asof` (default: last full month).
+    Thinly graded origins fall back to the market-wide rate; '_all' holds that rate."""
+    p, f = graded_monthly(mk)
+    asof = asof if asof is not None else last_full_month()
+    win = (p.index <= asof) & (p.index > asof - pd.DateOffset(months=PASS_MONTHS))
+    ps, fs = p[win].sum(), f[win].sum()
+    tot = ps + fs
+    allr = float(ps.sum() / tot.sum()) if tot.sum() > 0 else np.nan
+    r = (ps / tot.where(tot > 0)).where(tot >= PASS_MIN_BAGS, allr)
+    r["_all"] = allr
+    return r
+
+
 @st.cache_data(ttl=600)
 def nowcast_table(mk: str, method: str = DEFAULT_FILL) -> pd.DataFrame:
     """Per origin: the auto fit and its fresh pending estimate for the current and next months. Months whose lagged flow is
