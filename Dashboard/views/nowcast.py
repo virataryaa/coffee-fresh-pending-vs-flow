@@ -194,18 +194,18 @@ def render():
                     S[k_] = S[k_] * (1 - min(ro[k_] * kk, 1.0)) + add[k_]
                     fc_o[k_].append(S[k_])
             hist_o = Lo[Lo.index >= start]
-            line_c = ["#1f3b73", "#2f6f88", "#6f93ab", "#b08d57", "#8a94a6"]   # bold edges: navy, teal, steel, gold, grey
+            line_c = ["#2b4c8c", "#2a9d8f", "#e0a43a", "#c8553d", "#9aa5b8"]   # distinct hues: navy, teal, amber, terracotta, grey
             rgb = lambda h_, a_: "rgba({},{},{},{})".format(*(int(h_[j:j + 2], 16) for j in (1, 3, 5)), a_)   # noqa: E731
             fm = list(path)
             fig = go.Figure()
             for i, k_ in enumerate(hist_o.columns):            # history: light areas, bold line on each origin's edge
                 fig.add_scatter(x=me(hist_o.index), y=hist_o[k_] * u, name=k_, mode="lines", stackgroup="o", legendgroup=k_,
-                                line=dict(width=2, color=line_c[i]), fillcolor=rgb(line_c[i], .22),
+                                line=dict(width=2, color=line_c[i]), fillcolor=rgb(line_c[i], .32),
                                 hovertemplate=f"{k_} %{{y:,.0f}}<extra></extra>")
             for i, k_ in enumerate(hist_o.columns):            # forecast: stacked bars, the coming month strongest
                 fig.add_bar(x=me(fm), y=np.array(fc_o[k_]) * u, name=k_, showlegend=False, legendgroup=k_, width=18 * 86400000,
-                            marker=dict(color=[rgb(line_c[i], .85 if j == 0 else .35) for j in range(len(fm))],
-                                        line=dict(color=line_c[i], width=1)),
+                            marker=dict(color=[rgb(line_c[i], .9 if j == 0 else .55) for j in range(len(fm))],
+                                        line=dict(color="#ffffff", width=1)),
                             hovertemplate=f"{k_} forecast %{{y:,.0f}}<extra></extra>")
             tot_x = [hist_o.index[-1]] + fm if len(hist_o) else fm
             tot_y = ([float(hist_o.iloc[-1].sum())] if len(hist_o) else []) + [sum(fc_o[k_][j] for k_ in fc_o) for j in range(len(fm))]
