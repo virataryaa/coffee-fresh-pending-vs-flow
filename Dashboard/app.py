@@ -37,7 +37,7 @@ with st.sidebar:
              format_func=lambda k: {"Belgium": "Antwerp", "Combined": "Both"}.get(k, k))
     st.radio("Unit", ["Bags", "Lots"], horizontal=True, key="unit", label_visibility="collapsed")
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Study</div>", unsafe_allow_html=True)
-    section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k),
+    section = st.radio("Section", list(PAGES), index=list(PAGES).index("Nowcast"), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k),
                        on_change=lambda: st.session_state.update(method=False))   # leaving Methodology
     m = core.manifest()
     st.markdown(f"<div class='sb-sep'></div><div class='sb-foot'>Built {m['built']}</div>", unsafe_allow_html=True)
