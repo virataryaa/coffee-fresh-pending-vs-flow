@@ -228,17 +228,24 @@ def render():
             cards = [card(m) for m in fm]
             for i, k_ in enumerate(hist_o.columns):            # forecast: stacked bars, the coming month strongest
                 fig.add_bar(x=me(fm), y=np.array(fc_o[k_]) * u, name=k_, showlegend=False, legendgroup=k_, width=18 * 86400000,
-                            marker=dict(color=[rgb(line_c[i], .9 if j == 0 else .55) for j in range(len(fm))],
+                            marker=dict(color=rgb(line_c[i], .8),
                                         line=dict(color="#ffffff", width=1)),
                             customdata=cards, hovertemplate="%{customdata}<extra></extra>")
             tot_x = [hist_o.index[-1]] + fm if len(hist_o) else fm
             tot_y = ([float(hist_o.iloc[-1].sum())] if len(hist_o) else []) + [sum(fc_o[k_][j] for k_ in fc_o) for j in range(len(fm))]
             fig.add_scatter(x=me(tot_x), y=np.array(tot_y) * u, name="Total", mode="lines+markers+text", line=dict(color=c.NAVY, width=2, dash="dot"),
-                            marker=dict(size=6, color=c.NAVY), text=[""] + [c.kfmt(v * u) for v in tot_y[1:]], textposition="top center",
+                            marker=dict(size=6, color=c.NAVY), text=["", ""] + [c.kfmt(v * u) for v in tot_y[2:]], textposition="top center",
                             textfont=dict(size=10, color=c.NAVY), hovertemplate="Total %{y:,.0f}<extra></extra>")
             st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month</div>",
                         unsafe_allow_html=True)
-            c.style(fig, height=320, barmode="stack", xaxis=xax, hovermode="closest",
+            if fm:                                               # the month to watch: bold outline + label
+                hi = "#7b3fa0"
+                top_ = tot_y[1] if len(hist_o) else tot_y[0]
+                fig.add_shape(type="rect", x0=fm[0] - pd.Timedelta(days=10), x1=fm[0] + pd.Timedelta(days=10), y0=0, y1=top_ * u,
+                              line=dict(color=hi, width=3), fillcolor="rgba(0,0,0,0)", layer="above")
+                fig.add_annotation(x=fm[0], y=top_ * u, text=f"<b>{fm[0]:%b-%y}: {c.kfmt(top_ * u)}</b>", showarrow=False, yshift=26,
+                                   font=dict(color="#ffffff", size=11), bgcolor=hi, borderpad=4)
+            c.style(fig, height=340, barmode="stack", xaxis=xax, hovermode="closest",
                     hoverlabel=dict(bgcolor="rgba(255,255,255,.98)", bordercolor="rgba(43,74,138,.25)", align="left",
                                     font=dict(family="JetBrains Mono, Consolas, Menlo, monospace", size=11, color="#1d1d1f")))
             c.show(fig, "nc_level_o")
