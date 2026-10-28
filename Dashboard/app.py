@@ -3,7 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="Fresh Pending vs Flow", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Certs Forecast", layout="wide", initial_sidebar_state="expanded")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import core  # noqa: E402
@@ -30,7 +30,7 @@ LABELS = {"Overview": "Grading Overview", "Origin Study": "Origin Deep Dive", "B
           "Nowcast": "Arabica Certs Forecast", "Spreads": "Spread Impact", "Data": "Data Sources"}
 
 with st.sidebar:
-    st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>Arabica (ICE KC) grading vs origin flows</div>",
+    st.markdown("<div class='sb-title'>Certs<br>Forecast</div><div class='sb-sub'>Arabica (ICE KC) · from fresh pending and flows</div>",
                 unsafe_allow_html=True)
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Market</div>", unsafe_allow_html=True)
     st.radio("Market", list(core.MARKETS), horizontal=True, key="market", label_visibility="collapsed",
