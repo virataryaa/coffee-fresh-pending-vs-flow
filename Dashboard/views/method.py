@@ -65,6 +65,12 @@ def render():
           arrow("x &radic;months ahead"), node("Bands", "around the forecast", "out")],
          ["The same rule is run on every past month and the misses noted.",
           "Half the misses fit in the dark band, 4 in 5 in the light one. It widens further out because misses add up."])
+    band = st.session_state.get(f"band_html_{c.market()}")
+    with st.container(border=True):
+        st.markdown(f"<div class='mt-step'><span>&#9679;</span>How the bands work: {c.MARKETS[c.market()]['where']}, real numbers</div>",
+                    unsafe_allow_html=True)
+        st.markdown(band or "<div class='mt-what'>Open Arabica Certs Forecast once for this market to see its numbers here.</div>",
+                    unsafe_allow_html=True)
 
     st.markdown("<div class='note'>Data: ICE grading and LSEG certs (Daily Miner), origin exports and imports (TDM Pro), Brazil exports "
                 "(Cecafe). Arabica (ICE KC) only.</div>", unsafe_allow_html=True)
