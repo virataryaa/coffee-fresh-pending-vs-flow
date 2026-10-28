@@ -182,6 +182,7 @@ def render():
             own = (x6 / l6.where(l6 > 0)).clip(0, 1)
             S = Lo.iloc[-1].astype(float).to_dict()
             fc_o = {k_: [] for k_ in S}
+            det = {}                                             # month -> origin -> (start, fresh pending, pass rate, new, leave %, left, end)
             for m in path:
                 add = {o: (float(passed.loc[cur, o]) if (m == cur and use_mtd and o in passed) else 0.0)
                        + (1 - frac if (m == cur and use_mtd) else 1.0) * float(new_o.get(o, {}).get(m, 0.0) or 0.0) for o in top}
@@ -190,9 +191,13 @@ def render():
                 tot_left = sum(S[k_] for k_ in S) * rates[m]
                 raw = sum(S[k_] * ro[k_] for k_ in S)
                 kk = tot_left / raw if raw > 0 else 1.0
+                det[m] = {}
                 for k_ in S:
-                    S[k_] = S[k_] * (1 - min(ro[k_] * kk, 1.0)) + add[k_]
+                    s0, lr = S[k_], min(ro[k_] * kk, 1.0)
+                    S[k_] = s0 * (1 - lr) + add[k_]
                     fc_o[k_].append(S[k_])
+                    fp_ = float(nc.set_index("Origin").get(m, pd.Series(dtype=float)).get(k_, np.nan)) if k_ != "Rest" else np.nan
+                    det[m][k_] = (s0, fp_, float(pr.get(k_, pr["_all"])) if k_ != "Rest" else np.nan, add[k_], lr, s0 * lr, S[k_])
             hist_o = Lo[Lo.index >= start]
             line_c = ["#2b4c8c", "#2a9d8f", "#e0a43a", "#c8553d", "#9aa5b8"]   # distinct hues: navy, teal, amber, terracotta, grey
             rgb = lambda h_, a_: "rgba({},{},{},{})".format(*(int(h_[j:j + 2], 16) for j in (1, 3, 5)), a_)   # noqa: E731
@@ -202,11 +207,30 @@ def render():
                 fig.add_scatter(x=me(hist_o.index), y=hist_o[k_] * u, name=k_, mode="lines", stackgroup="o", legendgroup=k_,
                                 line=dict(width=2, color=line_c[i]), fillcolor=rgb(line_c[i], .32),
                                 hovertemplate=f"{k_} %{{y:,.0f}}<extra></extra>")
+            kf = lambda v: c.kfmt(v * u) if pd.notna(v) else "-"   # noqa: E731
+
+            def card(m):
+                """Hover card for a forecast month: one row per origin, then the total."""
+                rows_ = [f"<b>{m:%b-%y} forecast</b>  <span style='color:#6b7391'>stock at month end, {un}</span>", "",
+                         "<span style='color:#6b7391'>{:<10}{:>8}{:>9}{:>6}{:>8}{:>12}{:>8}</span>".format(
+                             "", "start", "fresh p.", "pass", "+ new", "- leaving", "= end")]
+                for i_, k2 in enumerate(det[m]):
+                    s0, fp_, pr_, nw, lr, lf, e1 = det[m][k2]
+                    row = "{:<8}{:>8}{:>9}{:>6}{:>8}{:>12}{:>8}".format(
+                        k2[:8], kf(s0), kf(fp_), f"{pr_:.0%}" if pd.notna(pr_) else "-", "+" + kf(nw), f"-{kf(lf)} {lr:.0%}", kf(e1))
+                    rows_.append(f"<span style='color:{line_c[i_]}'>●</span> {row[:-8]}<b>{row[-8:]}</b>")   # bold the end column
+                t0, tn, tl, te = (sum(v[j] for v in det[m].values()) for j in (0, 3, 5, 6))
+                rows_ += ["", "<b>{:<10}{:>8}{:>9}{:>6}{:>8}{:>12}{:>8}</b>".format("Total", kf(t0), "", "", "+" + kf(tn), "-" + kf(tl), kf(te))]
+                if m == cur and use_mtd:
+                    rows_.append(f"<span style='color:#6b7391'>{m:%b} new = passed so far + forecast for the rest ({1 - frac:.0%} of the month)</span>")
+                return "<br>".join(rows_)
+
+            cards = [card(m) for m in fm]
             for i, k_ in enumerate(hist_o.columns):            # forecast: stacked bars, the coming month strongest
                 fig.add_bar(x=me(fm), y=np.array(fc_o[k_]) * u, name=k_, showlegend=False, legendgroup=k_, width=18 * 86400000,
                             marker=dict(color=[rgb(line_c[i], .9 if j == 0 else .55) for j in range(len(fm))],
                                         line=dict(color="#ffffff", width=1)),
-                            hovertemplate=f"{k_} forecast %{{y:,.0f}}<extra></extra>")
+                            customdata=cards, hovertemplate="%{customdata}<extra></extra>")
             tot_x = [hist_o.index[-1]] + fm if len(hist_o) else fm
             tot_y = ([float(hist_o.iloc[-1].sum())] if len(hist_o) else []) + [sum(fc_o[k_][j] for k_ in fc_o) for j in range(len(fm))]
             fig.add_scatter(x=me(tot_x), y=np.array(tot_y) * u, name="Total", mode="lines+markers+text", line=dict(color=c.NAVY, width=2, dash="dot"),
@@ -214,7 +238,9 @@ def render():
                             textfont=dict(size=10, color=c.NAVY), hovertemplate="Total %{y:,.0f}<extra></extra>")
             st.markdown(f"<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month</div>",
                         unsafe_allow_html=True)
-            c.style(fig, height=320, barmode="stack", xaxis=xax)
+            c.style(fig, height=320, barmode="stack", xaxis=xax, hovermode="closest",
+                    hoverlabel=dict(bgcolor="rgba(255,255,255,.98)", bordercolor="rgba(43,74,138,.25)", align="left",
+                                    font=dict(family="JetBrains Mono, Consolas, Menlo, monospace", size=11, color="#1d1d1f")))
             c.show(fig, "nc_level_o")
             st.session_state[f"origin_rates_{mk}"] = {k_: (float(own[k_]) if pd.notna(own.get(k_)) else None) for k_ in Lo.columns}
         if path and ex_m is not None:
