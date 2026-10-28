@@ -60,6 +60,14 @@ def render():
          [node("Stock", "this month", "src"), arrow("x (1 - leaving)"), node("Stays"), arrow("+ new certs"),
           node("Stock", "next month", "out"), arrow("repeat"), node("Stock", "months ahead", "out")],
          ["Starts from the last full month's stock."])
+    step("5b", "Split by origin", "Who holds the stock, and how each origin's share moves.",
+         [node("Origin stock", "this month", "src"), arrow("x (1 - own leaving)"), node("Stays"), arrow("+ own new certs"),
+          node("Origin stock", "next month", "out")],
+         ["<b>Own leaving</b> = half the origin's own last-6-month pace, half the market's. Brazil empties faster (about 29% a month "
+          "at Antwerp lately) than Peru (about 8%), so a shared rate would get the mix wrong.",
+          "Origins with under 2,000 bags in stock just use the market rate: too small to trust their own.",
+          "The rates are then scaled so the total leaving equals the main forecast: the split changes, the total does not.",
+          "<b>New certs</b> per origin come from its own fresh pending forecast x pass rate; the rest go to 'Rest'."])
     step(6, "Bands", "How sure we are.",
          [node("Past forecasts", "vs what happened", "src"), arrow("misses"), node("50% / 80%", "of past misses"),
           arrow("x &radic;months ahead"), node("Bands", "around the forecast", "out")],

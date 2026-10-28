@@ -157,37 +157,52 @@ def render():
         c.style(fig, height=380, xaxis=dict(color=c.AXIS, showgrid=False, dtick=dtick, tickformat="%b-%y", hoverformat="End of %b-%y"))
         c.show(fig, "nc_level")
 
-        # ── by origin: stock per origin (ICE report), same leaving % for every origin ──
+        # ── by origin: stock per origin (ICE report); each origin leaves at half its own 6-month pace, half the market's,
+        #    scaled so the total leaving matches the main forecast ──
         g = c.port_daily(mk)
         g = g[g["Date"] <= full + pd.offsets.MonthEnd(0)]
-        last_day = g.groupby(g["Date"].dt.to_period("M"))["Date"].max()
-        so = g[g["Date"].isin(last_day)].groupby([g["Date"].dt.to_period("M").dt.to_timestamp(), "Origin"])["Certs"].sum().unstack().fillna(0.0)
+        mon = g["Date"].dt.to_period("M").dt.to_timestamp()
+        is_last = g.groupby(mon)["Date"].transform("max") == g["Date"]
+        so = g[is_last].groupby([mon[is_last], "Origin"])["Certs"].sum().unstack().fillna(0.0)
+        po = g.groupby([mon, "Origin"])["Passed"].sum().unstack().reindex(so.index).fillna(0.0)
         if not so.empty and path:
             top = list(so.iloc[-1].sort_values(ascending=False).index[:4])
-            hist_o = so[top].assign(Rest=so.drop(columns=top).sum(axis=1))
-            hist_o = hist_o[hist_o.index >= start]
-            S = so[top].assign(Rest=so.drop(columns=top).sum(axis=1)).iloc[-1].astype(float).to_dict()
+            grp = lambda df: df[top].assign(Rest=df.drop(columns=top).sum(axis=1))   # noqa: E731
+            Lo, Po = grp(so), grp(po)
+            Xo = Lo.shift(1) + Po - Lo
+            l6, x6 = Lo.shift(1).iloc[-6:].sum(), Xo.iloc[-6:].sum()
+            own = (x6 / l6.where(l6 > 0)).clip(0, 1)
+            S = Lo.iloc[-1].astype(float).to_dict()
             fc_o = {k_: [] for k_ in S}
             for m in path:
                 add = {o: (float(passed.loc[cur, o]) if (m == cur and use_mtd and o in passed) else 0.0)
                        + (1 - frac if (m == cur and use_mtd) else 1.0) * float(new_o.get(o, {}).get(m, 0.0) or 0.0) for o in top}
                 add["Rest"] = max(adds[m] - sum(add.values()), 0.0)
+                ro = {k_: (own[k_] + rates[m]) / 2 if S[k_] >= 2000 and pd.notna(own.get(k_)) else rates[m] for k_ in S}
+                tot_left = sum(S[k_] for k_ in S) * rates[m]
+                raw = sum(S[k_] * ro[k_] for k_ in S)
+                kk = tot_left / raw if raw > 0 else 1.0
                 for k_ in S:
-                    S[k_] = S[k_] * (1 - rates[m]) + add[k_]
+                    S[k_] = S[k_] * (1 - min(ro[k_] * kk, 1.0)) + add[k_]
                     fc_o[k_].append(S[k_])
+            hist_o = Lo[Lo.index >= start]
+            xs = list(hist_o.index) + list(path)
             cols = ["#1f3b73", "#3f7f9a", "#9db7c9", "#c9a96e", "#d9dde6"]   # navy, steel teal, mist blue, muted gold, pale grey
             fig = go.Figure()
             for i, k_ in enumerate(hist_o.columns):
-                fig.add_bar(x=me(hist_o.index), y=hist_o[k_] * u, name=k_, marker_color=cols[i], marker_line_width=0, legendgroup=k_,
-                            hovertemplate=f"{k_} %{{y:,.0f}}<extra></extra>")
-                fig.add_bar(x=me(list(path)), y=np.array(fc_o[k_]) * u, name=k_, showlegend=False, legendgroup=k_,
-                            marker=dict(color=cols[i], opacity=.45, line=dict(color=cols[i], width=1), pattern=dict(shape="/", fgcolor="#ffffff", size=5)),
-                            hovertemplate=f"{k_} forecast %{{y:,.0f}}<extra></extra>")
-            st.markdown("<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}hatched = forecast"
-                        f"{D}same leaving % for every origin{D}ICE report, from {c.STUDY_START:%b-%y}</div>", unsafe_allow_html=True)
-            c.style(fig, height=300, barmode="stack", bargap=0.25,
-                    xaxis=dict(color=c.AXIS, showgrid=False, dtick=dtick if since != "All" else "M3", tickformat="%b-%y", hoverformat="End of %b-%y"))
+                ys = list(hist_o[k_]) + fc_o[k_]
+                kind = ["actual"] * len(hist_o) + ["forecast"] * len(path)
+                fig.add_scatter(x=me(xs), y=np.array(ys) * u, name=k_, mode="lines", stackgroup="o", line=dict(width=0.6, color=cols[i]),
+                                fillcolor=cols[i], customdata=kind, hovertemplate=f"{k_} %{{y:,.0f}} (%{{customdata}})<extra></extra>")
+            step_m = {"M1": 1, "M2": 2, "M3": 3}.get(dtick if since != "All" else "M3", 3)
+            tv = me(xs[::-1][::step_m][::-1])
+            tt = [f"{t:%b-%y}" + ("*" if t.to_period("M").to_timestamp() in path else "") for t in tv]
+            st.markdown("<div class='chart-head' style='margin-top:6px'>By origin</div><div class='card-desc'>Month end{D}* = forecast month"
+                        f"{D}each origin leaves at its own pace (see Methodology){D}ICE report, from {c.STUDY_START:%b-%y}</div>",
+                        unsafe_allow_html=True)
+            c.style(fig, height=300, xaxis=dict(color=c.AXIS, showgrid=False, tickvals=tv, ticktext=tt, hoverformat="End of %b-%y"))
             c.show(fig, "nc_level_o")
+            st.session_state[f"origin_rates_{mk}"] = {k_: (float(own[k_]) if pd.notna(own.get(k_)) else None) for k_ in Lo.columns}
         if path and ex_m is not None:
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
             n_ = len(px_) - 1
