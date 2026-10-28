@@ -1,8 +1,8 @@
 {
-  "built": "2026-10-22 15:10",
-  "grading_last": "2026-10-21",
+  "built": "2026-10-28 10:24",
+  "grading_last": "2026-10-27",
   "grading_first": "2023-07-18",
-  "grading_days": 695,
+  "grading_days": 699,
   "flows_last": {
     "Cecafe Arabica (all destinations)": "2026-09",
     "Cecafe Robusta (all destinations)": "2026-09",
@@ -19,5 +19,5 @@
     "US \u00b7 Origin exports": "2026-09",
     "US \u00b7 US imports": "2026-08"
   },
-  "spread_last": "2026-10-21"
+  "spread_last": "2026-10-27"
 }
