@@ -178,7 +178,7 @@ def main():
     last = {f"{m} · {s}" if m != "All" else s: g_["Month"].max().strftime("%Y-%m") for (m, s), g_ in f.groupby(["Market", "Source"])}
     man = {"built": datetime.now().strftime("%Y-%m-%d %H:%M"), "grading_last": g["Date"].max().strftime("%Y-%m-%d"),
            "grading_first": g["Date"].min().strftime("%Y-%m-%d"), "grading_days": int(g["Date"].nunique()), "flows_last": last,
-           "spread_last": sp["Date"].max().strftime("%Y-%m-%d")}
+           "spread_last": sp["Date"].max().strftime("%Y-%m-%d"), "certs_last": cd["Date"].max().strftime("%Y-%m-%d")}
     (OUT / "manifest.json").write_text(json.dumps(man, indent=2))
     fits = build_fits()
     fits.to_parquet(OUT / "fits.parquet", index=False)

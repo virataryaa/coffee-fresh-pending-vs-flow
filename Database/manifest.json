@@ -1,5 +1,5 @@
 {
-  "built": "2026-10-28 10:39",
+  "built": "2026-10-28 11:33",
   "grading_last": "2026-10-27",
   "grading_first": "2023-07-18",
   "grading_days": 699,
@@ -19,5 +19,6 @@
     "US \u00b7 Origin exports": "2026-09",
     "US \u00b7 US imports": "2026-08"
   },
-  "spread_last": "2026-10-27"
+  "spread_last": "2026-10-27",
+  "certs_last": "2026-10-27"
 }

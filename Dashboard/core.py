@@ -275,13 +275,12 @@ def exit_rate(rate: pd.Series, m: pd.Timestamp, method: str) -> float:
     return (float(prev.iloc[-6:].mean()) + _seasonal(prev, m)) / 2
 
 
-def month_progress(mk: str) -> float:
-    """Share of the current month's business days already reported."""
+def month_progress(mk: str, month: pd.Timestamp = None) -> float:
+    """Share of `month`'s business days already reported (default: the latest month in the certs data)."""
     d = certs_daily(mk)
-    last = d.index.max()
-    cur = last.to_period("M").to_timestamp()
+    cur = month if month is not None else d.index.max().to_period("M").to_timestamp()
     total = len(pd.bdate_range(cur, cur + pd.offsets.MonthEnd(0)))
-    return min(int((d.index >= cur).sum()) / total, 1.0)
+    return min(int(((d.index >= cur) & (d.index <= cur + pd.offsets.MonthEnd(0))).sum()) / total, 1.0)
 
 
 def mtd_rate(days: pd.DataFrame, l0: float, frac: float, rest: float) -> float:

@@ -74,23 +74,33 @@ def render():
     scale = max(float(p_all[win].sum() / fit_p), 1.0) if fit_p > 0 else 1.0   # origins without a fit still add some certs
     xpred, xscore = c.exit_backtest(mk)
     xm = c.EXIT_METHOD
-    frac = c.month_progress(mk)
+    frac = c.month_progress(mk, cur)
     use_mtd = cur > full                                     # so far + rest at 6m: never worse than 6m alone, even on day 1
-    cur_days = c.certs_daily(mk).loc[lambda d: d.index >= cur]
+    cur_days = c.certs_daily(mk).loc[lambda d: (d.index >= cur) & (d.index <= cur + pd.offsets.MonthEnd(0))]
+    fx = [m for m in fx if m > full]                        # a month already complete is history, not forecast
     rates = {}
     for m in fx:
         r6 = c.exit_rate(xrate, m, xm)
         r0 = c.mtd_rate(cur_days, float(lvf.iloc[-1]), frac, r6) if (m == cur and use_mtd) else r6
         rates[m] = r0 if pd.notna(r0) else c.exit_rate(xrate, m, "Recent 6m")
-    L, path = float(lvf.iloc[-1]), {}
+    p_sofar = float(cur_days["Passed"].sum()) if use_mtd else 0.0
+    L, path, adds = float(lvf.iloc[-1]), {}, {}
     for m in fx:
-        L = L * (1 - rates[m]) + ctot[m] * scale
+        # this month: certs already passed + the forecast for the part of the month still to come
+        adds[m] = p_sofar + (1 - frac) * ctot[m] * scale if (m == cur and use_mtd) else ctot[m] * scale
+        L = L * (1 - rates[m]) + adds[m]
         path[m] = L
-    res = []                                                 # one-month-ahead misses of the same rule, for the bands
+    # one-month-ahead misses of the whole rule, for the bands: fresh pending from the flow fits (so its error counts too),
+    # the pass rate and 6-month leaving rate known the month before
+    fits = {r["Origin"]: c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk) for _, r in nc.iterrows() if r["Origin"] in org}
+    res = []
     for m in exp.index:
         pm = m - pd.DateOffset(months=1)
         if pm in lvf.index and m in lvf.index and m in xpred.index and pd.notna(xpred.loc[m, xm]):
-            res.append((m, float(lvf[pm] * (1 - xpred.loc[m, xm]) + exp[m] * scale), float(lvf[m])))
+            rm = c.pass_rate(mk, pm, pw)
+            nf = sum(float(f.get(m, np.nan)) * float(rm.get(o, rm["_all"])) for o, f in fits.items())
+            if pd.notna(nf):
+                res.append((m, float(lvf[pm] * (1 - xpred.loc[m, xm]) + nf * scale), float(lvf[m])))
     ex_m, ex_pred, ex_act = res[-1] if res else (None, np.nan, np.nan)      # latest tested month, for the explainer
     res = pd.Series([abs(b - a) for _, a, b in res], dtype=float)
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)

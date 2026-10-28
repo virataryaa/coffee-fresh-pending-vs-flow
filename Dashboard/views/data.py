@@ -11,6 +11,7 @@ def render():
     rows = [("ICE grading report", [m["grading_first"], m["grading_last"], f"{m['grading_days']} report days"], "")]
     rows += [(s, ["", v, "TDM" if ("exports" in s or "imports" in s) else "Cecafe"], "") for s, v in m["flows_last"].items()]
     rows.append(("KC 1/2 spread", ["2015-01", m.get("spread_last", "–"), "Daily Miner"], ""))
+    rows.append(("Certified stock by port (LSEG)", ["2010-12", m.get("certs_last", "–"), "Daily Miner"], ""))
     # freshness dot: green = most recent source, red = oldest, amber = in between
     when = {i: pd.to_datetime(r[1][1], errors="coerce") for i, r in enumerate(rows)}
     ok = [t for t in when.values() if pd.notna(t)]

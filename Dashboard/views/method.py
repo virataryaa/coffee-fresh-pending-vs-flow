@@ -28,7 +28,7 @@ def render():
 
     c.bar("Methodology")
     with st.container(border=True, key="glow_method"):
-        flow(node("Coffee shipped", "exports, imports", "src"), arrow("1-3 months later"), node("Fresh pending", "sent to grading"),
+        flow(node("Coffee shipped", "exports, imports", "src"), arrow("0-3 months later"), node("Fresh pending", "sent to grading"),
              arrow("x pass rate"), node("New certs", "coffee that passed"), arrow("+ to stock"), node("Certified stock", "", "out"))
         flow(node("Stock", "start of month", "src"), arrow("- certs leaving"), arrow("+ new certs"), node("Stock", "end of month", "out"))
 
