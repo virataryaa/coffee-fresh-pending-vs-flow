@@ -144,9 +144,11 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
             hx2 = xrate.index[xrate.index >= h0]
             fig = go.Figure()
             fig.add_bar(x=hx2, y=xrate[hx2], name="Actual", marker_color=c.NAVY, marker_line_width=0)
-            for meth, col, dash in [(xm, c.TEAL, "solid"), ("Seasonal", c.AMBER, "dot")]:
-                fig.add_scatter(x=hx2, y=xpred[meth].reindex(hx2), name=meth + (" (used)" if meth == xm else ""), mode="lines",
-                                line=dict(color=col, width=2, dash=dash))
+            for meth, name, col, dash in [(xm, f"{xm} (used ahead)", c.TEAL, "solid"),
+                                          ("This month so far", f"This month so far, scaled ({frac:.0%} in)", c.RED, "solid"),
+                                          ("Seasonal", "Seasonal", c.AMBER, "dot")]:
+                fig.add_scatter(x=hx2, y=xpred[meth].reindex(hx2), name=name, mode="lines+markers" if meth == "This month so far" else "lines",
+                                line=dict(color=col, width=2, dash=dash), marker=dict(size=5))
             if rates:
                 fig.add_bar(x=list(rates), y=list(rates.values()), name="Forecast", marker=dict(color="rgba(42,140,140,.25)",
                             line=dict(color=c.TEAL, width=1.2), pattern=dict(shape="/", fgcolor=c.TEAL, size=6)))
