@@ -91,8 +91,7 @@ def render():
         if pm in lvf.index and m in lvf.index and m in xpred.index and pd.notna(xpred.loc[m, xm]):
             res.append((m, float(lvf[pm] * (1 - xpred.loc[m, xm]) + exp[m] * scale), float(lvf[m])))
     ex_m, ex_pred, ex_act = res[-1] if res else (None, np.nan, np.nan)      # latest tested month, for the explainer
-    sres = pd.Series([b - a for _, a, b in res], dtype=float)  # signed: actual - forecast
-    res = sres.abs()
+    res = pd.Series([abs(b - a) for _, a, b in res], dtype=float)
     w50, w80 = (res.quantile(.5), res.quantile(.8)) if len(res) > 5 else (0.0, 0.0)
     er = float(np.mean(list(rates.values()))) if rates else 0.0
 
@@ -121,29 +120,6 @@ def render():
             fig.add_scatter(x=[lv.index[-1]], y=[now * u], name="Today", mode="markers", marker=dict(symbol="diamond", size=11, color=c.AMBER))
         c.style(fig, height=360, xaxis=dict(color=c.AXIS, showgrid=False, dtick="M2", tickformat="%b-%y"))
         c.show(fig, "nc_level")
-        if path and len(sres) > 5:
-            # chance the stock ends above each level: past signed misses, widened by sqrt(months ahead), added to the forecast
-            n_ = len(px_) - 1
-            sims = base[-1] + sres.to_numpy() * np.sqrt(n_)
-            sims = sims[np.isfinite(sims)]
-            p10, p90 = np.percentile(sims, 10), np.percentile(sims, 90)
-            raw = max((p90 - p10) / 5, 1.0)
-            mag = 10 ** np.floor(np.log10(raw))
-            step = next(mag * k_ for k_ in (1, 2, 2.5, 5, 10) if mag * k_ >= raw)   # a round step, ~6 levels across the 10-90% range
-            lv_ = np.arange(np.floor(p10 / step) * step, p90 + step, step)
-            lv_ = lv_[lv_ > 0][:7]
-            pr_up = float((sims > now).mean())
-            probs = [float((sims > x).mean()) for x in lv_]
-            fig = go.Figure()
-            fig.add_bar(x=[f"> {c.kfmt(x * u)}" for x in lv_], y=probs, marker_line_width=0,
-                        marker_color=[f"rgba(42,140,140,{.25 + .7 * p_:.2f})" for p_ in probs],
-                        text=[f"{p_:.0%}" for p_ in probs], textposition="outside", hovertemplate="%{x}: %{y:.0%}<extra></extra>")
-            c.style(fig, height=230, legend=False, yaxis=dict(gridcolor=c.GRID, color=c.AXIS, tickformat=".0%", range=[0, 1.12]),
-                    xaxis=dict(color=c.AXIS, showgrid=False))
-            st.markdown(f"<div class='chart-head' style='margin-top:4px'>Chance stock ends {px_[-1]:%b-%y} above…</div><div class='card-desc'>"
-                        f"Chance it ends higher than today ({c.kfmt(now * u)}): <b>{pr_up:.0%}</b>{D}from {len(sres)} past forecast misses</div>",
-                        unsafe_allow_html=True)
-            c.show(fig, "nc_prob")
         if path and ex_m is not None:
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
             n_ = len(px_) - 1
