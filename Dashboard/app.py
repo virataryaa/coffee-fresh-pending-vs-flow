@@ -30,16 +30,15 @@ LABELS = {"Overview": "Grading Overview", "Origin Study": "Origin Deep Dive", "B
           "Nowcast": "Certs Forecast", "Spreads": "Spread Impact", "Data": "Data Sources"}
 
 with st.sidebar:
-    st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>KC grading vs origin flows</div>",
+    st.markdown("<div class='sb-title'>Fresh Pending<br>vs Flow</div><div class='sb-sub'>Arabica (ICE KC) grading vs origin flows</div>",
                 unsafe_allow_html=True)
-    st.markdown("<div class='sb-sep'></div><div class='sb-label'>Section</div>", unsafe_allow_html=True)
-    section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k))
     st.markdown("<div class='sb-sep'></div><div class='sb-label'>Market</div>", unsafe_allow_html=True)
     st.radio("Market", list(core.MARKETS), horizontal=True, key="market", label_visibility="collapsed",
-             format_func=lambda k: {"Combined": "BE + US"}.get(k, k))
-    st.markdown("<div class='sb-sep'></div><div class='sb-label'>Unit</div>", unsafe_allow_html=True)
+             format_func=lambda k: {"Belgium": "Antwerp", "Combined": "Both"}.get(k, k))
     st.radio("Unit", ["Bags", "Lots"], horizontal=True, key="unit", label_visibility="collapsed")
+    st.markdown("<div class='sb-sep'></div><div class='sb-label'>Study</div>", unsafe_allow_html=True)
+    section = st.radio("Section", list(PAGES), key="section", label_visibility="collapsed", format_func=lambda k: LABELS.get(k, k))
     m = core.manifest()
-    st.markdown(f"<div class='sb-sep'></div><div class='sb-foot'>ICE report {m['grading_last']}<br>Built {m['built']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sb-sep'></div><div class='sb-foot'>Built {m['built']}</div>", unsafe_allow_html=True)
 
 PAGES[section]()

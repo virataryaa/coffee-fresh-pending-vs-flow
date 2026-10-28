@@ -137,5 +137,11 @@ table.st tr.tot td { background: #eef1f8; font-weight: 700; color: #0a2463; bord
   margin: 22px 0 10px; padding: 9px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,.9);
   background: linear-gradient(90deg, rgba(214,232,245,0) 0%, rgba(200,226,242,.85) 30%, rgba(222,240,248,.95) 50%, rgba(200,226,242,.85) 70%, rgba(214,232,245,0) 100%);
   box-shadow: 0 2px 14px rgba(120,170,210,.15), inset 0 1px 0 rgba(255,255,255,.9); }
+.page-title .asof { float: right; font-size: 11.5px; font-weight: 600; color: #3a5596; background: rgba(200,226,242,.55);
+  border: 1px solid rgba(255,255,255,.9); border-radius: 999px; padding: 3px 10px; letter-spacing: 0; }
+.st-key-section div[role="radiogroup"] label:last-child { position: relative; margin-top: 30px !important; }
+.st-key-section div[role="radiogroup"] label:last-child::before { content: "OUTPUT"; position: absolute; top: -20px; left: 2px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .18em; color: #6b7391; }
+.st-key-unit { margin-top: -6px; }
 </style>
 """

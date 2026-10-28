@@ -30,6 +30,9 @@ def render():
         st.info("No origin has a usable fit.")
         return
     months = [m for m in nc.columns if isinstance(m, pd.Timestamp)]
+    h = st.radio("Months ahead", list(range(1, len(months) + 1)), index=len(months) - 1, horizontal=True, key="nc_h",
+                 format_func=lambda k: f"{k}m ahead", label_visibility="collapsed", help="How far out to forecast")
+    months = months[:h]
     cur = months[0]
     fpm = c.fp_monthly(mk)
     full = c.last_full_month()
@@ -208,7 +211,7 @@ def render():
 
     with st.container(border=True):
         c.head("Fresh pending: actual vs expected from flow", "Bands = past misses", keep=True)
-        view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], horizontal=True, key="nc_view", label_visibility="collapsed",
+        view = st.radio("Group by", ["Month", "Rolling 3 months", "Quarter"], index=2, horizontal=True, key="nc_view", label_visibility="collapsed",
                         help="Grouping smooths out coffee that is graded a few weeks earlier or later than expected")
         fits = [c.fitted(r["Origin"], r["Source"], int(r["Lag"]), mk).rename(r["Origin"]) for _, r in nc.iterrows()]
         idx = pd.date_range(c.STUDY_START, max(months), freq="MS")

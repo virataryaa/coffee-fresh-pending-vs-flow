@@ -321,7 +321,8 @@ def bar(title):
 
 
 def page_title(title, sub=""):  # sub is accepted but not shown (declutter)
-    st.markdown(f"<div class='page-title'>{title}</div>", unsafe_allow_html=True)
+    asof = pd.Timestamp(manifest()["grading_last"]).strftime("%d-%b-%y")
+    st.markdown(f"<div class='page-title'>{title}<span class='asof'>ICE data as of {asof}</span></div>", unsafe_allow_html=True)
 
 
 def table(header, rows, corner="", cls=""):
