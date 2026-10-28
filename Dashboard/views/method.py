@@ -50,11 +50,11 @@ def render():
           arrow("add up"), node("New certs", "all origins", "out")],
          ["Origins with no good flow match still add a little, so the total is scaled up by their past share."])
     step(4, "Certs leaving", "Stock that goes out each month.",
-         [node("Left so far", "this month", "src"), arrow("/ share of month done"), node("Leaving", "this month", "out"),
+         [node("Left so far", "this month", "src"), arrow("+ rest of month at 6m pace"), node("Leaving", "this month", "out"),
           "<div class='fl-gap'></div>",
           node("Last 6 months", "% leaving", "src"), arrow("average"), node("Leaving", "later months", "out")],
          ["<b>Measured</b>: start stock + passed - end stock, as a % of start stock.",
-          "<b>This month</b>: what has left so far, scaled up to a full month. The most accurate method by far.",
+          "<b>This month</b>: what has left so far + the rest of the month at the 6-month pace. Day 1 is about the 6-month pace; it firms up daily.",
           "<b>Later months</b>: the last 6 months' average. Tested since 2016 against 3-month, seasonal and blended: as good and simplest."])
     step(5, "Certified stock", "Rolled forward one month at a time.",
          [node("Stock", "this month", "src"), arrow("x (1 - leaving)"), node("Stays"), arrow("+ new certs"),

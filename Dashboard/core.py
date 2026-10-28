@@ -284,17 +284,20 @@ def month_progress(mk: str) -> float:
     return min(int((d.index >= cur).sum()) / total, 1.0)
 
 
-def mtd_rate(days: pd.DataFrame, l0: float, frac: float) -> float:
-    """Exit rate implied by the month so far: exits to date / l0, scaled to a full month."""
-    if days.empty or l0 <= 0 or frac <= 0:
+def mtd_rate(days: pd.DataFrame, l0: float, frac: float, rest: float) -> float:
+    """This month's exit rate: what has left so far (/ l0) + the rest of the month at `rest` (the 6-month pace).
+    Day 1 is about the 6-month pace; it moves to the actual as the month fills in. Beats scaling the so-far pace on any day."""
+    if l0 <= 0 or pd.isna(rest):
         return np.nan
-    return float((l0 + days["Passed"].sum() - days["Certs"].iloc[-1]) / l0 / frac)
+    if days.empty:
+        return float(rest)
+    return float((l0 + days["Passed"].sum() - days["Certs"].iloc[-1]) / l0 + (1 - min(frac, 1.0)) * rest)
 
 
 @st.cache_data(ttl=600)
 def exit_backtest(mk: str) -> tuple:
-    """Each method's predicted exit rate for every past full month from EXIT_TEST_FROM, plus 'This month so far' (the month-to-date
-    pace cut at today's share of the month). Returns (predictions, scores) with the average miss in bags and r per method."""
+    """Each method's predicted exit rate for every past full month from EXIT_TEST_FROM, plus 'This month so far' (left so far, cut at today's
+    share of the month, + the rest at the 6-month pace). Returns (predictions, scores) with the average miss in bags and r per method."""
     em = exits_monthly(mk)
     full = em.iloc[:-1]                                      # drop the current, partial month
     rate = full["rate"]
@@ -307,7 +310,8 @@ def exit_backtest(mk: str) -> tuple:
             pred.loc[m, meth] = exit_rate(rate, m, meth)
         days = d[(d.index >= m) & (d.index <= m + pd.offsets.MonthEnd(0))]
         cut = days.iloc[:max(1, int(round(len(days) * frac)))]
-        pred.loc[m, "This month so far"] = mtd_rate(cut, float(full.loc[m, "L0"]), len(cut) / max(len(days), 1))
+        pred.loc[m, "This month so far"] = mtd_rate(cut, float(full.loc[m, "L0"]), len(cut) / max(len(days), 1),
+                                                    pred.loc[m, EXIT_METHOD])
     rows = []
     for meth in pred:
         e = (pred[meth] - rate[ev]).dropna()

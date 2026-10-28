@@ -75,11 +75,12 @@ def render():
     xpred, xscore = c.exit_backtest(mk)
     xm = c.EXIT_METHOD
     frac = c.month_progress(mk)
-    use_mtd = cur > full and xscore.loc["This month so far", "miss"] < xscore.loc[xm, "miss"]
+    use_mtd = cur > full                                     # so far + rest at 6m: never worse than 6m alone, even on day 1
     cur_days = c.certs_daily(mk).loc[lambda d: d.index >= cur]
     rates = {}
     for m in fx:
-        r0 = c.mtd_rate(cur_days, float(lvf.iloc[-1]), frac) if (m == cur and use_mtd) else c.exit_rate(xrate, m, xm)
+        r6 = c.exit_rate(xrate, m, xm)
+        r0 = c.mtd_rate(cur_days, float(lvf.iloc[-1]), frac, r6) if (m == cur and use_mtd) else r6
         rates[m] = r0 if pd.notna(r0) else c.exit_rate(xrate, m, "Recent 6m")
     L, path = float(lvf.iloc[-1]), {}
     for m in fx:
@@ -145,7 +146,7 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
             fig = go.Figure()
             fig.add_bar(x=hx2, y=xrate[hx2], name="Actual", marker_color=c.NAVY, marker_line_width=0)
             for meth, name, col, dash in [(xm, f"{xm} (used ahead)", c.TEAL, "solid"),
-                                          ("This month so far", f"This month so far, scaled ({frac:.0%} in)", c.RED, "solid"),
+                                          ("This month so far", f"This month: so far + rest at 6m ({frac:.0%} in)", c.RED, "solid"),
                                           ("Seasonal", "Seasonal", c.AMBER, "dot")]:
                 fig.add_scatter(x=hx2, y=xpred[meth].reindex(hx2), name=name, mode="lines+markers" if meth == "This month so far" else "lines",
                                 line=dict(color=col, width=2, dash=dash), marker=dict(size=5),
@@ -160,7 +161,7 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
             sc_ = xscore.sort_values("miss")
             win_ = [xm] + (["This month so far"] if use_mtd else [])
             fig = go.Figure()
-            fig.add_bar(y=["This month so far,<br>scaled to full month" if m_ == "This month so far" else m_ for m_ in sc_.index],
+            fig.add_bar(y=["This month:<br>so far + rest at 6m" if m_ == "This month so far" else m_ for m_ in sc_.index],
                         x=sc_["miss"] * u, orientation="h", marker_line_width=0,
                         marker_color=[c.TEAL if m_ in win_ else "#c9d2e6" for m_ in sc_.index],
                         text=[f"{c.kfmt(v * u)}" for v in sc_["miss"]], textposition="outside",
@@ -178,9 +179,12 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
             mtd_txt = ""
             if use_mtd and not cur_days.empty:
                 x_so_far = float(lvf.iloc[-1] + cur_days["Passed"].sum() - cur_days["Certs"].iloc[-1])
-                mtd_txt = (f"<div class='ex-s'><span>3</span><b>This month: use what has already left</b>{cur:%b} started at <b>{k(lvf.iloc[-1])}</b>. "
-                           f"So far <b>{k(x_so_far)}</b> has left ({x_so_far / float(lvf.iloc[-1]):.0%}) with {frac:.0%} of the month done, "
-                           f"We scale that up to a full month: {x_so_far / float(lvf.iloc[-1]):.0%} / {frac:.0%} = <b>{rates.get(cur, np.nan):.0%}</b>.</div>")
+                so_ = x_so_far / float(lvf.iloc[-1])
+                r6_ = c.exit_rate(xrate, cur, xm)
+                mtd_txt = (f"<div class='ex-s'><span>3</span><b>This month: what left + the rest at normal pace</b>{cur:%b} started at "
+                           f"<b>{k(lvf.iloc[-1])}</b>. So far <b>{k(x_so_far)}</b> has left (<b>{so_:.0%}</b>) with {frac:.0%} of the month done. "
+                           f"The other {1 - frac:.0%} of the month is assumed at the 6-month pace: {so_:.0%} + {1 - frac:.0%} x {r6_:.0%} = "
+                           f"<b>{rates.get(cur, np.nan):.0%}</b>. On day 1 this is about the 6-month pace; it firms up as the month goes.</div>")
             st.markdown(f"""<div class='explain'><div class='ex-f'>Certs leaving = last month's stock + passed - this month's stock</div><div class='ex-g'>
 <div class='ex-s'><span>1</span><b>Measure what left</b>{full:%b-%y} started at <b>{k(lm['L0'])}</b>, <b>{k(lm['P'])}</b> passed grading and it ended at
 <b>{k(lm['L'])}</b>. So <b>{k(lm['X'])}</b> left: <b>{lm['rate']:.0%}</b> of the stock.</div>
@@ -189,7 +193,7 @@ Average <b>{last6.mean():.0%}</b> a month, used for every month after this one.<
 {mtd_txt}
 <div class='ex-s'><span>{4 if mtd_txt else 3}</span><b>Why this way</b>We tested every month since {c.EXIT_TEST_FROM:%Y} ({int(xscore['n'].max())} months).
 Avg miss: recent 6m <b>{k(sc_t['Recent 6m'])}</b>, seasonal {k(sc_t['Seasonal'])}, blend {k(sc_t['Blend'])},
-this month so far, scaled to a full month, <b>{k(sc_t['This month so far'])}</b>. Simplest that works wins.</div></div></div>""", unsafe_allow_html=True)
+this month (so far + rest at 6m) <b>{k(sc_t['This month so far'])}</b>. Simplest that works wins.</div></div></div>""", unsafe_allow_html=True)
 
     left, right = st.columns([3, 2])
     with left, st.container(border=True):
