@@ -164,11 +164,6 @@ In {ex_m:%b-%y} the rule said <b>{k(ex_pred)}</b>, the real number was <b>{k(ex_
             c.style(fig, height=280, legend=False, yaxis=dict(autorange="reversed", color=c.AXIS, tickfont=dict(size=10)),
                     xaxis=dict(color=c.AXIS, showgrid=False, title=dict(text=f"Avg miss a month ({un}), smaller = better", font=dict(size=10))))
             c.show(fig, "nc_exit_sc")
-        used_txt = D.join(f"{m:%b} {r0:.0%}" for m, r0 in rates.items())
-        st.markdown(f"<div class='note'>Tested on {int(xscore['n'].max())} months since {c.EXIT_TEST_FROM:%Y}{D}"
-                    f"next months use <b>{xm}</b> ({c.EXIT_METHODS[xm]})"
-                    + (f"{D}{cur:%b} uses <b>this month so far</b> ({frac:.0%} of the month done)" if use_mtd else "")
-                    + f"{D}rates used: {used_txt}</div>", unsafe_allow_html=True)
         with st.expander("How certs leaving works", expanded=False):
             k = lambda v: f"{c.kfmt(v * u)}"                 # noqa: E731
             lm = em.loc[full]
