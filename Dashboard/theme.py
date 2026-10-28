@@ -3,9 +3,9 @@ white cards. .streamlit/config.toml pins base="light"."""
 
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 html, body, [class*="css"], [data-testid="stAppViewContainer"], .stMarkdown, button, input, textarea {
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important; -webkit-font-smoothing: antialiased; }
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif !important; -webkit-font-smoothing: antialiased; }
 [data-testid="stAppViewContainer"], [data-testid="stMain"], .main { background: #fafafa !important; }
 [data-testid="stHeader"] { background: transparent !important; height: 2.6rem !important; min-height: 0 !important; }
 h1, h2, h3, h4, h5, h6 { color: #0a2463 !important; letter-spacing: -.01em; }
@@ -53,7 +53,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
   border-right: 1px solid rgba(255,255,255,.75) !important; box-shadow: inset -1px 0 0 rgba(10,36,99,.06), 6px 0 28px rgba(10,36,99,.06); }
 [data-testid="stSidebarUserContent"] { padding-top: 1rem !important; }
-.sb-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.4rem; font-weight: 600; color: #0a2463 !important; line-height: 1.15; margin-bottom: 4px; }
+.sb-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; color: #0a2463 !important; line-height: 1.15; margin-bottom: 4px; }
 .sb-sub { font-size: 11px; color: #5a6688; margin-bottom: 8px; }
 .sb-label, [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
     font-size: 10.5px !important; font-weight: 700; color: #0a2463 !important; text-transform: uppercase; letter-spacing: .11em; margin: 10px 0 6px; }

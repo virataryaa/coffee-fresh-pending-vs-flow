@@ -410,7 +410,7 @@ def kfmt(v):
 
 def style(fig, height=320, legend=True, fmt=",.0f", y2=None, **kw):
     fig.update_layout(template="plotly_white", height=height, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      font=dict(color="#1d1d1f", size=11, family="Inter, -apple-system, Segoe UI, sans-serif"),
+                      font=dict(color="#1d1d1f", size=11, family="Plus Jakarta Sans, -apple-system, Segoe UI, sans-serif"),
                       margin=dict(t=8, b=28, l=8, r=8), hovermode="x unified", bargap=0.3, showlegend=legend,
                       legend=dict(orientation="h", x=0, y=1.02, yanchor="bottom", bgcolor="rgba(0,0,0,0)", font=dict(size=10)),
                       xaxis=dict(color=AXIS, showgrid=False, tickfont=dict(size=10)),
